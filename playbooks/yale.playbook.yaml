@@ -1,0 +1,370 @@
+version: 1
+name: "Yale Application Senior Lecturer"
+job_id: "185331"
+url: "https://apply.interfolio.com/185331"
+
+steps:
+  # --- landing page -----------------------------------------------------------
+  # The Interfolio SPA can paint slowly; networkidle returns early, so give the
+  # page a moment before interacting with it.
+  # Cookie banner is timing/session dependent; dismiss it if present.
+  - click: "Accept all cookies"
+    optional: true
+    wait_after: 1
+  - click: "Apply Now"
+    wait_after: 3
+  - click: "Create an account"
+    wait_after: 3
+
+  # --- account creation -------------------------------------------------------
+  # Creates a fresh Interfolio account and completes the full application in one run.
+  - fill: "Email Address"
+    selector: "#email"
+    value: "{{ emails.institution_email }}"
+  - fill: "First Name"
+    selector: "#first-name"
+    value: "{{ person_name.legal_name.first }}"
+  - fill: "Last Name"
+    selector: "#last-name"
+    value: "{{ person_name.legal_name.last }}"
+  - fill: "Password"
+    selector: "#password"
+    value: "{{ account.password }}"
+  - fill: "What country do you live in?"
+    selector: "#country"
+    value: "{{ address_and_contact.primary_address.country }}"
+    wait_after: 1
+  - click: "{{ address_and_contact.primary_address.country }}"
+    exact: true
+    optional: true
+    wait_after: 1
+  # Valid values: "Tenured" | "Tenure-track" | "Full-time, non-tenure track" |
+  # "Part-time, non-tenure track" | "Post-Doc" | "Graduate Student" |
+  # "Medical Student" | "Undergraduate/Pre-med" | "Alternative Academic Career" | "Other"
+  - select: "I am..."
+    selector: "#position-status"
+    value: "{{ answers.interfolio_position_status }}"
+  # Valid values: "A Professional or Academic Organization" | "My Advisor, Professor, or Mentor" |
+  # "My Colleague, Peer, or Friend" | "My Institution" | "Social Media" |
+  # "An Article, Blog, or Online Forum" | "Podcast" | "Other"
+  - select: "How did you hear about us?"
+    selector: "#how-did-you-hear"
+    value: "{{ answers.interfolio_referral_source }}"
+  - click: "Close Alert"
+    selector: ".intf-static-banner-close.intf-btn"
+    optional: true
+    wait_after: 1
+  - check: "I agree to Interfolio's Terms of Service"
+    selector: 'label[for="agree-to-terms"]'
+  - click: "Sign Up"
+    selector: "xpath=//button[normalize-space()='Sign Up']"
+    wait_after: 3
+
+  # --- profile setup ----------------------------------------------------------
+  # (second /signup step: professional details)
+  - fill: "Address Line 1"
+    selector: "#address"
+    value: "{{ address_and_contact.primary_address.line_1 }}"
+  - fill: "Address Line 2"
+    selector: '[id$="address2"]'
+    value: "{{ address_and_contact.primary_address.line_2 }}"
+    optional: true
+  - fill: "Country"
+    selector: "#country"
+    value: "{{ address_and_contact.primary_address.country }}"
+    wait_after: 1
+  - click: "{{ address_and_contact.primary_address.country }}"
+    exact: true
+    wait_after: 1
+  - fill: "City"
+    selector: "#city"
+    value: "{{ address_and_contact.primary_address.city }}"
+  - fill: "ZIP/Postal Code"
+    selector: "#zip"
+    value: "{{ address_and_contact.primary_address.postal_code }}"
+  # State/Province is an Angular Material mat-select (no real <option>s, options
+  # render lazily in a CDK overlay). Drive it by keyboard typeahead: focus the
+  # control, type the abbreviation, confirm with Enter.
+  - press: "Select state"
+    selector: "#state"
+    value: "{{ answers.interfolio_state }}, Enter"
+    wait_after: 1
+  # The mat-select panel can linger open; its cdk-overlay-backdrop then
+  # intercepts every later click. Dismiss it by clicking the backdrop.
+  - script: "Dismiss state overlay"
+    value: >
+      var b = document.querySelector('.cdk-overlay-backdrop');
+      if (b) { b.click(); }
+    wait_after: 1
+  # Highest Degree Earned is an intf-fis-combobox: type to filter, click option.
+  - fill: "Highest Degree Earned"
+    selector: "#degree"
+    value: "{{ answers.degree }}"
+    wait_after: 1
+  - click: "{{ answers.degree }}"
+    role: option
+    wait_after: 1
+  - fill: "Institution"
+    selector: "#institution"
+    value: "{{ answers.school }}"
+  - fill: "Date Earned"
+    selector: "#date-earned"
+    value: "{{ answers.degree_date_earned }}"
+  - fill: "Current Title"
+    selector: "#current-title"
+    value: "{{ answers.current_title }}"
+  # Organization is a free-text combobox ("...or enter the name of your
+  # organization"). Type it, click a matching option if one appears, else
+  # Enter commits the free-text value.
+  - fill: "Organization"
+    selector: "#organization"
+    value: "{{ answers.current_organization }}"
+    wait_after: 1
+  - click: "{{ answers.current_organization }}"
+    role: option
+    optional: true
+    wait_after: 1
+  - press: "Commit organization"
+    selector: "#organization"
+    value: "Enter"
+    wait_after: 1
+  - click: "Create my Profile"
+    selector: "xpath=//button[normalize-space()='Create my Profile']"
+    wait_after: 3
+
+  # --- dossier onboarding -----------------------------------------------------
+  # Valid values: "Fine & Performing Arts" | "Humanities" | "Social Sciences" |
+  # "STEM (Science, Technology, Engineering, Math)" | "Business" | "Law" |
+  # "Medicine / Health Professions" | "Government" | "Education" | "Other"
+  - select: "Discipline"
+    selector: "#scholarly-discipline"
+    value: "{{ answers.interfolio_discipline }}"
+  - check: "Apply to jobs in higher education"
+    selector: "#dossier-usage-ids-3"
+  - check: "Search for jobs"
+    selector: "#dossier-usage-ids-7"
+  - click: "Take me to My Dossier"
+    selector: "xpath=//button[normalize-space()='Take me to My Dossier']"
+    wait_after: 5
+
+  # "Take me to My Dossier" lands on the generic Dossier home, not this job's
+  # application packet. Now that the account exists and we're logged in, re-enter
+  # the job posting; "Apply Now" should open the application packet directly
+  # (the per-account application id is dynamic, so we can't link to it directly).
+  - open: "https://apply.interfolio.com/185331"
+    wait_after: 3
+  - click: "Apply Now"
+    wait_after: 3
+
+  # --- application: documents -------------------------------------------------
+  # URL: dossier.interfolio.com/facultysearch/applications/<dynamic id>
+  # Required: Cover Letter, C.V., Teaching Statement, Syllabus,
+  #           Other Document (teaching evals), Contact Reference
+  # Optional: Additional Documents
+  #
+  # All "Add File" buttons share the same class; targeted by position.
+  # Modal flow: "Add File" → "Add New File" tab → upload file → "Add"
+
+  # 1. Cover Letter
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[1]"
+    wait_after: 1
+  - click: "Add New File"
+    wait_after: 1
+  - upload: "Cover Letter"
+    selector: "input[type=file]"
+    value: "{{ documents.cover_letter_path_or_url }}"
+    wait_after: 2
+  - click: "Add"
+    wait_after: 2
+
+  # 2. C.V.
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[2]"
+    wait_after: 1
+  - click: "Add New File"
+    wait_after: 1
+  - upload: "C.V."
+    selector: "input[type=file]"
+    value: "{{ documents.resume_path_or_url }}"
+    wait_after: 2
+  - click: "Add"
+    wait_after: 2
+
+  # 3. Teaching Statement
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[3]"
+    wait_after: 1
+  - click: "Add New File"
+    wait_after: 1
+  - upload: "Teaching Statement"
+    selector: "input[type=file]"
+    value: "{{ documents.teaching_statement_path }}"
+    wait_after: 2
+  - click: "Add"
+    wait_after: 2
+
+  # 4. Syllabus (sample syllabi / course materials incl. AI use policy)
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[4]"
+    wait_after: 1
+  - click: "Add New File"
+    wait_after: 1
+  - upload: "Syllabus"
+    selector: "input[type=file]"
+    value: "{{ documents.syllabus_path }}"
+    wait_after: 2
+  - click: "Add"
+    wait_after: 2
+
+  # 5. Other Document (teaching evaluations if available)
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[5]"
+    when: 'documents.teaching_evaluations_path != "" and documents.teaching_evaluations_path != null'
+    wait_after: 1
+  - click: "Add New File"
+    when: 'documents.teaching_evaluations_path != "" and documents.teaching_evaluations_path != null'
+    wait_after: 1
+  - upload: "Teaching Evaluations"
+    selector: "input[type=file]"
+    value: "{{ documents.teaching_evaluations_path }}"
+    when: 'documents.teaching_evaluations_path != "" and documents.teaching_evaluations_path != null'
+    wait_after: 2
+  - click: "Add"
+    when: 'documents.teaching_evaluations_path != "" and documents.teaching_evaluations_path != null'
+    wait_after: 2
+
+  # 6. Contact Reference (names and contact info for 3 references as a document)
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[6]"
+    wait_after: 1
+  - click: "Add New File"
+    wait_after: 1
+  - upload: "Contact Reference"
+    selector: "input[type=file]"
+    value: "{{ documents.references_path }}"
+    wait_after: 2
+  - click: "Add"
+    wait_after: 2
+
+  # 7. Additional Documents (optional)
+  - click: "Add File"
+    selector: "xpath=(//button[contains(@class,'intf-btn-inverted')])[7]"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 1
+  - click: "Add New File"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 1
+  - upload: "Additional Documents"
+    selector: "input[type=file]"
+    value: "{{ documents.additional_attachment_path }}"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 2
+  - click: "Add"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 2
+
+  - click: "Next"
+    selector: ".push-right-xs.intf-btn"
+    wait_after: 3
+
+  # --- personal information: education ----------------------------------------
+  # URL: ?section=edu
+  # Pre-populated from profile; click Edit to unlock fields.
+  - click: "Edit"
+    selector: ".pull-right.pad-top-sm"
+    wait_after: 1
+  # Degree options format: "Ph.D. - Doctor of Philosophy" | "M.D. - Doctor of Medicine" | etc.
+  # See dropdown options above for full list.
+  - select: "Highest Degree Earned"
+    selector: "#degree-select"
+    value: "{{ answers.degree }}"
+  - fill: "Institution"
+    selector: "#receiving-institution"
+    value: "{{ answers.school }}"
+  - fill: "Date Earned"
+    selector: '[name*="datepicker-input"]'
+    value: "{{ answers.degree_year_acquired }}"
+  - click: "Next"
+    selector: ".push-right-xs.intf-btn"
+    wait_after: 3
+
+  # --- forms: Yale EEO-1 / voluntary self-identification ----------------------
+  # URL: ?section=forms
+  - fill: "Your Name"
+    selector: '[id$="question_145260"]'
+    value: "{{ person_name.legal_name.first }} {{ person_name.legal_name.last }}"
+  - fill: "Today's Date"
+    selector: '[id$="question_145261"]'
+    value: "{{ builtins.today }}"
+
+  # Gender
+  - pick:
+      group: "Gender"
+      scope: 'input[type=radio][name="mc-145252"]'
+      source: answers.gender
+      map:
+        Female: "Female"
+        Male: "Male"
+        Other: "Other"
+      default: "I do not want to answer"
+
+  # Hispanic / Latino
+  - pick:
+      group: "Hispanic or Latino"
+      scope: 'input[type=radio][name="mc-145253"]'
+      source: answers.is_hispanic_or_latino
+      map:
+        true: "I am Hispanic / Latino/a"
+        false: "I am not Hispanic / Latino/a"
+      default: "I do not want to answer"
+
+  # Race — check all that apply
+  - check: "American Indian or Alaskan Native"
+    selector: "#chk-145254-0"
+    when: '"American Indian or Alaska Native" in answers.race_ethnicity'
+  - check: "Asian"
+    selector: "#chk-145254-1"
+    when: '"Asian" in answers.race_ethnicity'
+  - check: "Black or African American"
+    selector: "#chk-145254-2"
+    when: '"Black or African American" in answers.race_ethnicity'
+  - check: "Native Hawaiian or Other Pacific Islander"
+    selector: "#chk-145254-3"
+    when: '"Native Hawaiian or Pacific Islander" in answers.race_ethnicity'
+  - check: "White/Caucasian"
+    selector: "#chk-145254-4"
+    when: '"White" in answers.race_ethnicity'
+  - check: "I do not want to answer"
+    selector: "#chk-145254-5"
+    when: 'answers.race_ethnicity == null or answers.race_ethnicity == ""'
+
+  # Disability (CC-305)
+  - pick:
+      group: "Disability"
+      scope: 'input[type=radio][name="mc-145259"]'
+      source: detailed_personal_info.disability_status.value
+      map:
+        "yes": "Yes, I have a disability"
+        "no": "No, I do not have a disability"
+      default: "I do not want to answer"
+
+  # Veteran status
+  - pick:
+      group: "Veteran"
+      scope: 'input[type=radio][name="mc-145266"]'
+      source: answers.is_veteran
+      map:
+        true: "I identify as one or more of the classifications of protected veteran"
+        false: "I am not a protected veteran"
+      default: "I do not want to answer"
+
+  - click: "Next"
+    selector: ".push-right-xs.intf-btn"
+    wait_after: 3
+
+  # --- review & submit --------------------------------------------------------
+  # URL: ?section=review
+  # Uncomment when ready to submit for real:
+  # - click: "Submit Delivery"
+  #   selector: ".push-right-xs.intf-btn"

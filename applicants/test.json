@@ -1,0 +1,248 @@
+{
+  "application_profile_version": "1.0",
+  "last_updated": "{{ builtins.today_iso }}",
+  "profile_completeness": {
+    "status": "ready",
+    "missing_required_fields": []
+  },
+
+  "account": {
+    "user_name": "mreyes_{{ builtins.unique }}",
+    "password": "Str0ng!Passw0rd2026",
+    "email": "marcus.reyes.test+{{ builtins.unique }}@example.com"
+  },
+
+  "person_name": {
+    "legal_name": {
+      "prefix": "Mr.",
+      "first": "Marcus",
+      "middle": "Tobias",
+      "last": "Reyes",
+      "suffix": "",
+      "two_last_names": {
+        "has_two_last_names": false,
+        "last_name_1": "",
+        "last_name_2": "",
+        "display_format": ""
+      },
+      "initials": "MTR"
+    },
+    "preferred_name": {
+      "use_preferred_name": false,
+      "preferred_first": "",
+      "preferred_middle": "",
+      "preferred_last": ""
+    },
+    "prior_legal_names": []
+  },
+
+  "identity_and_status": {
+    "gender": { "value": "Male", "custom_value": "", "prefer_not_to_say": false },
+    "pronouns": { "set": "he/him", "custom": "" },
+    "sexual_orientation": { "value": "", "prefer_not_to_say": true },
+    "marital_status": { "value": "Single", "prefer_not_to_say": false }
+  },
+
+  "detailed_personal_info": {
+    "date_of_birth": "1993-08-22",
+    "ethnicity": { "value": "Hispanic or Latino", "prefer_not_to_say": false },
+    "disability_status": {
+      "value": "no",
+      "accommodation_needed": false,
+      "accommodation_details": ""
+    },
+    "veteran_status": {
+      "value": "no",
+      "protected_veteran_categories": []
+    },
+    "birth_and_citizenship": {
+      "place_of_birth": { "city": "El Paso", "state_province": "Texas", "country": "United States" },
+      "citizenship_country": "United States",
+      "work_authorization_country": "United States",
+      "requires_visa_sponsorship": false,
+      "visa_status": { "type": "", "expiration_date": "", "notes": "" }
+    }
+  },
+
+  "address_and_contact": {
+    "primary_address": {
+      "line_1": "123 Fannin Street",
+      "line_2": "Apt 4B",
+      "city": "Houston",
+      "state_province": "Texas",
+      "postal_code": "77030",
+      "country": "United States"
+    },
+    "mailing_address": {
+      "same_as_primary": true,
+      "line_1": "", "line_2": "", "city": "", "state_province": "", "postal_code": "", "country": ""
+    },
+    "phone_numbers": {
+      "country_code": "+1",
+      "mobile": "3022203914",
+      "home": "",
+      "work": "",
+      "allow_same_number_for_all": true
+    }
+  },
+
+  "emails": {
+    "personal_email": "marcus.reyes.test+{{ builtins.unique }}@example.com",
+    "institution_email": "marcus.reyes.test+{{ builtins.unique }}@example.com",
+    "work_email": "",
+    "preferred_contact_email": "marcus.reyes.test+{{ builtins.unique }}@example.com"
+  },
+
+  "best_time_to_contact": {
+    "time_zone": "America/Chicago",
+    "preferred_windows": [
+      { "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "start_time": "09:00", "end_time": "17:00", "contact_method": "email" }
+    ]
+  },
+
+  "education": {
+    "highest_level": "Bachelor's Degree",
+    "schools": [
+      {
+        "institution": "University of Houston",
+        "degree": "B.S.",
+        "major": "Biology",
+        "minor": "",
+        "gpa": "3.7",
+        "city": "Houston",
+        "state_province": "Texas",
+        "country": "United States",
+        "start_date": "2014-08",
+        "end_date": "2018-05",
+        "graduation_date": "2018-05",
+        "currently_enrolled": false,
+        "abd_status": false,
+        "abd_details": ""
+      }
+    ],
+    "certifications": [
+      {
+        "name": "ACRP Certified Clinical Research Coordinator (CCRC)",
+        "issuer": "Association of Clinical Research Professionals",
+        "issue_date": "2020-03",
+        "expiration_date": "2026-03",
+        "credential_id": "CCRC-204815",
+        "credential_url": ""
+      }
+    ]
+  },
+
+  "referral_and_relationships": {
+    "referred_by_employee": false,
+    "referral_details": { "employee_name": "", "employee_id": "", "relationship": "", "department": "" },
+    "nepotism_disclosures": []
+  },
+
+  "religion": {
+    "value": "",
+    "prefer_not_to_say": true,
+    "religious_accommodation_requested": false,
+    "accommodation_details": ""
+  },
+
+  "employment_basics": {
+    "job_title_applied_for": "Clinical Research Coordinator",
+    "job_id_or_requisition": "260000AU",
+    "employment_type_preference": ["full_time"],
+    "work_location_preference": ["onsite"],
+    "availability_to_start": "2026-07-01",
+    "salary_expectation": { "currency": "USD", "amount_min": 58000, "amount_max": 68000, "period": "annual" },
+    "willing_to_relocate": false,
+    "willing_to_travel_percent": 10
+  },
+
+  "work_history": [
+    {
+      "company": "Baylor College of Medicine",
+      "job_title": "Senior Research Coordinator",
+      "employment_type": "full_time",
+      "start_date": "2021-01",
+      "end_date": "",
+      "currently_working_here": true,
+      "city": "Houston",
+      "state_province": "Texas",
+      "country": "United States",
+      "supervisor_name": "Dr. Anita Powell",
+      "supervisor_contact": "713-555-0190",
+      "may_contact_supervisor": true,
+      "responsibilities": "Manage a portfolio of 12 active Phase II-IV clinical trials in oncology and cardiology.",
+      "achievements": "Maintained 95% data-query resolution within SLA across all studies.",
+      "reason_for_leaving": "Seeking growth at a larger academic medical center."
+    },
+    {
+      "company": "Houston Methodist Research Institute",
+      "job_title": "Clinical Research Associate",
+      "employment_type": "full_time",
+      "start_date": "2018-06",
+      "end_date": "2020-12",
+      "currently_working_here": false,
+      "city": "Houston",
+      "state_province": "Texas",
+      "country": "United States",
+      "supervisor_name": "Dr. James Okafor",
+      "supervisor_contact": "",
+      "may_contact_supervisor": true,
+      "responsibilities": "Supported 8 investigator-initiated studies; built REDCap data instruments.",
+      "achievements": "Prepared regulatory binders ensuring GCP/HIPAA compliance.",
+      "reason_for_leaving": "Promoted to a senior coordinator role at Baylor."
+    }
+  ],
+
+  "references": [
+    {
+      "name": "Dr. Anita Powell",
+      "relationship": "Direct supervisor",
+      "company": "Baylor College of Medicine",
+      "title": "Principal Investigator",
+      "email": "anita.powell.test@example.com",
+      "phone": "713-555-0190",
+      "years_known": 5
+    }
+  ],
+
+  "documents": {
+    "resume_path_or_url": "applicants/test_resume.pdf",
+    "cover_letter_path_or_url": "",
+    "portfolio_url": "",
+    "linkedin_url": "https://www.linkedin.com/in/marcus-reyes-test",
+    "github_url": "",
+    "other_links": []
+  },
+
+  "compliance_and_consent": {
+    "background_check_consent": true,
+    "drug_test_consent": true,
+    "data_processing_consent": true,
+    "e_signature": { "legal_name": "Marcus Tobias Reyes", "signed_at": "", "ip_address": "" },
+    "attestation": "I certify that the information provided is true and complete."
+  },
+
+  "answers": {
+    "region": "Houston",
+    "related_to_uthealth_employee": false,
+    "previously_employed_by_uthealth": false,
+    "gender": "Male",
+    "is_hispanic_or_latino": "Hispanic or Latino",
+    "ethnicity": "I do not wish to provide this information",
+    "protected_veteran": "Not an Other Protected Veteran",
+    "veteran_with_disability": false,
+    "surviving_spouse_of_veteran": false,
+    "orphan_of_veteran": false,
+    "former_foster_child": false,
+    "is_veteran": false,
+    "previously_employed_by_nyulangone": false,
+    "previously_employed_by_nyulangone_details": "",
+    "desired_salary": "65000",
+    "highest_education": "4 Year University/College Degree",
+    "degree": "Bachelor Of Science",
+    "school": "University Of Houston",
+    "license_cert": "Council of Clin Research Coord(30143)",
+    "race_ethnicity": "Hispanic or Latino",
+    "nyulangone_employee_id": ""
+  }
+}

@@ -1,0 +1,297 @@
+version: 1
+name: "University of Minnesota Application"
+job_id: "373632"
+url: "https://hr.myu.umn.edu/jobs/ext/373632"
+
+steps:
+  # --- job posting page -----------------------------------------------------
+  - click: "Apply for Job"
+    selector: "#APPLYJOB"
+    wait_after: 2
+
+  # --- sign-in modal: register as new user ----------------------------------
+  - click: "Register Now"
+    wait_after: 2
+
+  # --- registration form ----------------------------------------------------
+  - fill: "User Name"
+    selector: "#HRS_APPL_WRK_HRS_OPRNAMEREG"
+    value: "{{ account.user_name }}"
+  - fill: "Password"
+    selector: "#HRS_APPL_WRK_HRS_OPRPSWDREG"
+    value: "{{ account.password }}"
+  - fill: "Confirm Password"
+    selector: "#HRS_APPL_WRK_HRS_CONFMPSWD"
+    value: "{{ account.password }}"
+  - fill: "First Name"
+    selector: '[id="HRS_UPDNMFL_DVW_FIRST_NAME$1"]'
+    value: "{{ person_name.legal_name.first }}"
+  - fill: "Last Name"
+    selector: '[id="HRS_UPDNMFL_DVW_LAST_NAME$3"]'
+    value: "{{ person_name.legal_name.last }}"
+  - fill: "Email Address"
+    selector: "#HRS_APPL_WRK_EMAIL_ADDR"
+    value: "{{ emails.institution_email }}"
+  - fill: "Phone"
+    selector: "#HRS_APPL_WRK_PHONE"
+    value: "{{ address_and_contact.phone_numbers.mobile }}"
+  - fill: "Address 1"
+    selector: 'input[id$="ADDRESS1$0"]'
+    value: "{{ address_and_contact.primary_address.line_1 }}"
+  - fill: "Address 2"
+    selector: 'input[id$="ADDRESS2$1"]'
+    value: "{{ address_and_contact.primary_address.line_2 }}"
+    optional: true
+  - fill: "City"
+    selector: '[id="CITY$4"]'
+    value: "{{ address_and_contact.primary_address.city }}"
+  - select: "Country"
+    selector: "#DROPDOWN_COUNTRY"
+    value: "{{ address_and_contact.primary_address.country }}"
+  - select: "State"
+    selector: '[id="DER_ADDR_DDOWN_STATE$5"]'
+    value: "{{ address_and_contact.primary_address.state_province }}"
+  - fill: "Postal"
+    selector: '[id="POSTAL$6"]'
+    value: "{{ address_and_contact.primary_address.postal_code }}"
+  - fill: "County"
+    selector: '[id="COUNTY$7"]'
+    value: "{{ answers.county }}"
+    optional: true
+  - check: "I agree to the Terms and Conditions"
+    selector: "#HRS_CE_TERMS_AG_HRS_CE_AGREE_TERMS"
+  - click: "Register"
+    selector: "#HRS_APPL_WRK_HRS_REGISTER_PB"
+    wait_after: 3
+
+  # --- application start: agree to terms -----------------------------------
+  - check: "I agree to the Terms and Conditions"
+    selector: "#HRS_START_WRK_HRS_CE_AGREE_TERMS"
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- resume & cover letter -----------------------------------------------
+  # PeopleSoft opens a modal when you click Attach; the upload step triggers
+  # the hidden file input that appears inside that modal.
+  - click: "Attach Resume"
+    selector: '[id="HRS_CE_WRK_HRS_RES_OPT_PB$45$$0"]'
+    wait_after: 1
+  - upload: "Attach Resume"
+    selector: 'input[type=file]'
+    value: "{{ documents.resume_path_or_url }}"
+    wait_after: 1
+  - click: "Upload"
+    wait_after: 2
+  - click: "Done"
+    wait_after: 2
+  - click: "Attach Cover Letter"
+    selector: '[id="HRS_CE_WRK_HRS_COV_OPT_PB$0"]'
+    wait_after: 1
+    when: 'documents.cover_letter_path_or_url != ""'
+  - upload: "Attach Cover Letter"
+    selector: 'input[type=file]'
+    value: "{{ documents.cover_letter_path_or_url }}"
+    when: 'documents.cover_letter_path_or_url != ""'
+    wait_after: 1
+  - click: "Upload"
+    when: 'documents.cover_letter_path_or_url != ""'
+    wait_after: 2
+  - click: "Done"
+    when: 'documents.cover_letter_path_or_url != ""'
+    wait_after: 2
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- additional attachments -----------------------------------------------
+  - click: "Add Attachment"
+    selector: '[id="HRS_CE_LNK_WRK_HRS_ADD_ATTACH_PB$7$"]'
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 1
+  - upload: "Add Attachment"
+    selector: 'input[type=file]'
+    value: "{{ documents.additional_attachment_path }}"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 1
+  - click: "Upload"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 2
+  - click: "Done"
+    when: 'documents.additional_attachment_path != "" and documents.additional_attachment_path != null'
+    wait_after: 2
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- education ------------------------------------------------------------
+  # Valid values: "Associate Degree" | "Bachelors Level Degree" | "Doctorate (Academic)" |
+  # "Doctorate (Professional)" | "HS Graduate or Equivalent" | "Less Than HS Graduate" |
+  # "Masters Level Degree" | "Not Indicated" | "Post-Doctorate" | "Some College" |
+  # "Some Graduate School" | "Technical School" | "Vocation. Education (Bachelor)" |
+  # "Vocation. Education (Master)"
+  - select: "Highest Education Level"
+    selector: '[id="HRS_APP_PROFILE_HIGHEST_EDUC_LVL$0"]'
+    value: "{{ answers.highest_education }}"
+  - click: "Add Degrees"
+    selector: '[id="HRS_CE_LNK_WRK_HRS_ADD_CONTENT$6$$0"]'
+    wait_after: 1
+
+  # --- Add Degrees dialog (fields live inside a PeopleSoft iframe) ----------
+  # PeopleSoft appends a volatile occurrence suffix ($0/$1/...) to these ids,
+  # so anchor on the stable prefix with starts-with (^=) rather than exact match.
+  - fill: "Effective Date"
+    selector: '[id^="HRS_APPITM02_VW_EFFDT"]'
+    value: "{{ builtins.today }}"
+  - select: "Degree"
+    selector: '[id^="HRS_APPITM02_VW_JPM_CAT_ITEM_ID"]'
+    value: "{{ answers.degree }}"
+  - fill: "Major"
+    selector: '[id^="MAJOR_TBL_DESCR"]'
+    value: "{{ answers.major }}"
+  - fill: "School"
+    selector: '[id^="UM_SCHL_TBL_VW_SCHOOL_DESCR"]'
+    value: "{{ answers.school }}"
+    optional: true
+  - fill: "Country"
+    selector: '[id^="COUNTRY"]'
+    value: "{{ address_and_contact.primary_address.country }}"
+    optional: true
+  - fill: "State"
+    selector: '[id^="STATE"]'
+    value: "{{ address_and_contact.primary_address.state_province }}"
+    optional: true
+  - fill: "Year Acquired"
+    selector: '[id^="JPM_INTEGER_2"]'
+    value: "{{ answers.degree_year_acquired }}"
+  - click: "Done"
+    wait_after: 2
+
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- step 5 of 8: online questionnaire -----------------------------------
+
+  # Conflict of Interest: personal/business relationship with hiring team,
+  # or currently making decisions that affect the University.
+  - pick:
+      group: "Conflict of Interest"
+      scope: 'input[type=radio][name="UM_HRS_APP_COI_UM_HRS_COI$0"]'
+      source: answers.has_conflict_of_interest
+      map: { true: "Yes", false: "No" }
+
+  # Are you authorized to work in the United States? (Yes=1st, No=2nd)
+  - check: "Yes"
+    selector: "xpath=(//input[@type='radio'][@name='HRS_JO_EANS_I_R$sels$0'])[1]"
+    when: "answers.authorized_to_work_us == true"
+  - check: "No"
+    selector: "xpath=(//input[@type='radio'][@name='HRS_JO_EANS_I_R$sels$0'])[2]"
+    when: "answers.authorized_to_work_us == false"
+
+  # Would you now or in the future require sponsorship / STEM OPT support? (Yes=1st, No=2nd)
+  - check: "Yes"
+    selector: "xpath=(//input[@type='radio'][@name='HRS_JO_EANS_I_R$sels$1'])[1]"
+    when: "detailed_personal_info.birth_and_citizenship.requires_visa_sponsorship == true"
+  - check: "No"
+    selector: "xpath=(//input[@type='radio'][@name='HRS_JO_EANS_I_R$sels$1'])[2]"
+    when: "detailed_personal_info.birth_and_citizenship.requires_visa_sponsorship == false"
+
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- step 6 of 8: referral source & former employee ----------------------
+  # Valid values: "Advertisement" | "Career Fair" | "Employee Referral" |
+  # "HERC - Higher Education Recruitment Consortium" | "Job Board" | "LinkedIn" |
+  # "Other" | "Relocation Assistance Program" | "Social Network" | "U of M Career Site"
+  - select: "How did you learn of the job?"
+    selector: '[id="HRS_AL_SRCE_I_HRS_SOURCE_ID$0"]'
+    value: "{{ answers.referral_source }}"
+  - fill: "Specific Referral Source"
+    selector: '[id$="SUBSOURCE_DESC$0"]'
+    value: "{{ answers.specific_referral_source }}"
+    optional: true
+  # Valid values: "No" | "Yes"
+  - select: "Are you a former employee"
+    selector: '[id="HRS_APP_PROFILE_PREV_EMPL_BY_COMPY$0"]'
+    value: "{{ answers.previously_employed_by_umn }}"
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- step 7 of 8: disability self-identification (CC-305) ----------------
+  - pick:
+      as: check
+      source: detailed_personal_info.disability_status.value
+      map:
+        "yes": "Yes, I have a disability, or have had one in the past"
+        "no": "No, I do not have a disability and have not had one in the past"
+      default: "I do not want to answer"
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- step 8 of 8: veteran status -----------------------------------------
+  - pick:
+      group: "Voluntary Self-Identification of Protected Veteran Status"
+      scope: 'input[type=radio][name="VETERAN_STS_D"]'
+      source: answers.is_veteran
+      map:
+        true: "I IDENTIFY AS ONE OR MORE OF THE CLASSIFICATIONS OF PROTECTED VETERAN LISTED BELOW"
+        false: "I AM NOT A PROTECTED VETERAN"
+      default: "I DO NOT WISH TO ANSWER"
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 2
+
+  # --- EEO voluntary demographics ------------------------------------------
+
+  # Gender (radio: Female | Male, or decline via checkbox)
+  - pick:
+      group: "Gender"
+      scope: 'input[type=radio][name="ETHNICHISP_IND_Y1"]'
+      source: answers.gender
+      map:
+        Female: "Female"
+        Male: "Male"
+  - check: "I decline to answer"
+    selector: "#HRS_CE_TERMS_AG_HRS_SELF_IDNT_DEC1"
+    when: 'answers.gender == null or answers.gender == ""'
+
+  # Hispanic / Latino ethnicity
+  - pick:
+      group: "Hispanic or Latino"
+      scope: 'input[type=radio][name="ETHNICHISP_IND_Y"]'
+      source: answers.is_hispanic_or_latino
+      map:
+        true: "Yes, I am Hispanic or Latino."
+        false: "No, I am not Hispanic or Latino."
+
+  # Race — check all that apply (answers.race_ethnicity may be a list or single string)
+  - check: "American Indian or Alaska Native"
+    selector: "#HRS_DIV_WRK_HR_AMIND_IND_USA"
+    when: '"American Indian or Alaska Native" in answers.race_ethnicity'
+  - check: "Asian"
+    selector: "#HRS_DIV_WRK_HR_ASIAN_IND_USA"
+    when: '"Asian" in answers.race_ethnicity'
+  - check: "Black or African American"
+    selector: "#HRS_DIV_WRK_HR_BLACK_IND_USA"
+    when: '"Black or African American" in answers.race_ethnicity'
+  - check: "Native Hawaiian or Pacific Islander"
+    selector: "#HRS_DIV_WRK_HR_PACIF_IND_USA"
+    when: '"Native Hawaiian or Pacific Islander" in answers.race_ethnicity'
+  - check: "White"
+    selector: "#HRS_DIV_WRK_HR_WHITE_IND_USA"
+    when: '"White" in answers.race_ethnicity'
+  - check: "I decline to answer"
+    selector: '[id="HRS_CE_TERMS_AG_HRS_SELF_IDNT_DECL$49$"]'
+    when: 'answers.race_ethnicity == null or answers.race_ethnicity == ""'
+
+  - click: "Next"
+    selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
+    wait_after: 3
+
+  # --- review & submit ------------------------------------------------------
+  # - click: "Submit"
+  #   selector: "#PTGP_GPLT_WRK_PTGP_SUBMIT_PB"

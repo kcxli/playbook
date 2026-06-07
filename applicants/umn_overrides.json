@@ -1,0 +1,46 @@
+{
+  "documents": {
+    "resume_path_or_url": "applicants/test_resume.pdf",
+    "cover_letter_path_or_url": "applicants/test_resume.pdf",
+    "additional_attachment_path": "",
+    "portfolio_url": "",
+    "linkedin_url": "https://www.linkedin.com/in/marcus-reyes-test",
+    "github_url": "",
+    "other_links": []
+  },
+
+  "answers": {
+    "county": "",
+    "major": "Biology",
+    "degree_year_acquired": "2018",
+    "has_conflict_of_interest": false,
+    "authorized_to_work_us": true,
+    "referral_source": "Job Board",
+    "specific_referral_source": "",
+    "previously_employed_by_umn": "No",
+
+    "highest_education": "Bachelors Level Degree",
+    "degree": "Bachelor of Science",
+    "school": "University of Houston",
+
+    "gender": "Male",
+    "is_hispanic_or_latino": true,
+    "is_veteran": false,
+    "race_ethnicity": null,
+
+    "region": "Houston",
+    "related_to_uthealth_employee": false,
+    "previously_employed_by_uthealth": false,
+    "previously_employed_by_nyulangone": false,
+    "previously_employed_by_nyulangone_details": "",
+    "desired_salary": "65000",
+    "license_cert": "Council of Clin Research Coord(30143)",
+    "protected_veteran": "Not an Other Protected Veteran",
+    "veteran_with_disability": false,
+    "surviving_spouse_of_veteran": false,
+    "orphan_of_veteran": false,
+    "former_foster_child": false,
+    "ethnicity": "I do not wish to provide this information",
+    "nyulangone_employee_id": ""
+  }
+}
