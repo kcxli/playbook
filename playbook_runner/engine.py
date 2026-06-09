@@ -168,6 +168,48 @@ class Engine:
     def _do_sleep(self, step: Step) -> None:
         time.sleep(float(step.target))
 
+    def _do_wait_for(self, step: Step) -> None:
+        """Block until an element appears and is visible, then continue.
+
+        The robust alternative to a blind ``sleep``/``wait_after`` on AJAX-heavy
+        ATS pages: wait for the *thing you need* rather than guessing a duration.
+        Waits for ``selector:`` if given, else any element matching the text.
+        """
+        timeout = int(step.timeout) if step.timeout else self.default_timeout
+        target = render_text(step.target, self.context)
+        deadline = time.monotonic() + max(timeout, 1000) / 1000.0
+        while True:
+            loc = self._locate_any(target, step)
+            if loc is not None:
+                try:
+                    if loc.is_visible():
+                        return
+                except Exception:
+                    pass
+            if time.monotonic() >= deadline:
+                raise StepError(step, f"timed out after {timeout}ms waiting for: {target!r}")
+            self._poll_pause()
+
+    def _do_scroll(self, step: Step) -> None:
+        """Scroll an element into view, or the page to ``top``/``bottom``."""
+        target = render_text(step.target, self.context)
+        if not step.selector and target.strip().lower() in ("top", "bottom"):
+            y = "0" if target.strip().lower() == "top" else "document.body.scrollHeight"
+            self.page.evaluate(f"window.scrollTo(0, {y})")
+            return
+        loc = self._locate_any(target, step)
+        if loc is None:
+            raise StepError(step, f"could not locate element to scroll to: {target!r}")
+        loc.scroll_into_view_if_needed()
+
+    def _do_hover(self, step: Step) -> None:
+        """Hover the pointer over an element (to reveal hover menus, tooltips)."""
+        name = render_text(step.target, self.context)
+        loc = self._locate_any(name, step)
+        if loc is None:
+            raise StepError(step, f"could not locate element to hover: {name!r}")
+        loc.hover()
+
     def _do_script(self, step: Step) -> None:
         js = render_text(step.value, self.context)
         self.page.evaluate(js)
@@ -265,10 +307,14 @@ class Engine:
                 return found
             if time.monotonic() >= deadline:
                 return None
-            try:
-                self.page.wait_for_timeout(250)
-            except Exception:
-                time.sleep(0.25)
+            self._poll_pause()
+
+    def _poll_pause(self, ms: int = 250) -> None:
+        """Short pause between resolution attempts, tolerant of a closed page."""
+        try:
+            self.page.wait_for_timeout(ms)
+        except Exception:
+            time.sleep(ms / 1000.0)
 
     def _by_selector(self, selector: str):
         """Resolve an explicit selector, searching iframes; falls back to the
@@ -281,6 +327,27 @@ class Engine:
             except Exception:
                 continue
         return self.page.locator(selector).first
+
+    def _locate_any(self, text: str, step: Step):
+        """Find *any* element matching a selector or visible text — one pass.
+
+        Used by wait_for/scroll/hover, which aren't tied to a specific control
+        type (input vs button vs plain text). Returns the first match, or None.
+        """
+        if step.selector:
+            loc = self._by_selector(step.selector)
+            try:
+                return loc if loc.count() > 0 else None
+            except Exception:
+                return None
+        lit = _xpath_literal(text)
+        return self._try_resolve(lambda scope: [
+            scope.get_by_role("button", name=text, exact=step.exact),
+            scope.get_by_role("link", name=text, exact=step.exact),
+            scope.get_by_label(text, exact=step.exact),
+            scope.get_by_text(text, exact=step.exact),
+            scope.locator(f"xpath=//*[contains(normalize-space(.),{lit})]"),
+        ])
 
     def _control(self, field: str, step: Step, kinds: tuple[str, ...]):
         """Resolve a form control (input/textarea/select) by label or override."""
@@ -386,10 +453,7 @@ class Engine:
                         return r
             if time.monotonic() >= deadline:
                 return None
-            try:
-                self.page.wait_for_timeout(250)
-            except Exception:
-                time.sleep(0.25)
+            self._poll_pause()
 
     @staticmethod
     def _label_of(scope, radio) -> str:

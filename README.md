@@ -16,7 +16,12 @@ playbooks/              .playbook files (one per application form)
 applicants/             per-applicant data (JSON)
 information/test.json   the canonical applicant-profile schema
 SPEC.md                 how to write a .playbook file
+docs/terminal-and-linux.md   terminal & Linux guide (venv, running this, the server)
 ```
+
+New to the terminal or to Linux? Start with
+**[docs/terminal-and-linux.md](docs/terminal-and-linux.md)** — it's tailored to
+the exact commands this project uses.
 
 ## Setup
 
@@ -26,6 +31,21 @@ python3 -m venv .venv
 .venv/bin/python -m playwright install chromium
 ```
 
+## Draft a new playbook automatically (the wizard)
+
+The fastest way to start a new form: point the wizard at its URL. It opens the
+page, scrapes every field, guesses which applicant-data path each one wants, and
+writes a draft `.playbook.yaml` for you to review.
+
+```bash
+.venv/bin/python -m playbook_runner wizard "https://careers.example.com/apply/123" \
+    -o playbooks/example.playbook.yaml
+```
+
+Fields it can't map are marked `# TODO`, dropdown options are listed as comments,
+and radio groups become `pick` skeletons. It drafts the page it lands on; for a
+multi-page flow, re-run it on each later page. Then review and validate (below).
+
 ## Use
 
 Dry run first — validates every template/condition without opening a browser:
@@ -33,6 +53,15 @@ Dry run first — validates every template/condition without opening a browser:
 ```bash
 .venv/bin/python -m playbook_runner playbooks/uthealth.playbook.yaml \
     -d applicants/test.json --dry-run
+```
+
+`--validate` is the same check but stricter: it also confirms every upload file
+exists on disk and **exits non-zero** if anything is wrong — use it in scripts
+and before a batch run:
+
+```bash
+.venv/bin/python -m playbook_runner playbooks/uthealth.playbook.yaml \
+    -d applicants/test.json --validate
 ```
 
 Run for real (visible browser; drop `--headless` while testing):
@@ -48,17 +77,22 @@ Run for real (visible browser; drop `--headless` while testing):
 |------|---------|
 | `-d, --data FILE` | Applicant JSON (repeatable; later files override earlier) |
 | `--dry-run` | Resolve and print the plan; no browser |
+| `--validate` | Like `--dry-run` but also checks upload files exist; exits non-zero on any problem |
 | `--headless` | No visible window |
 | `--slow-mo MS` | Slow each Playwright action by MS milliseconds |
 | `--pace SECONDS` | Pause SECONDS after every step (overall slowdown to watch) |
 | `--timeout MS` | Per-action timeout (default 15000) |
 | `--screenshot-dir DIR` | Save a screenshot if a step fails |
 
-Batch over applicants:
+Batch over applicants (validate each first, skip any that fail):
 
 ```bash
 for who in applicants/*.json; do
-  .venv/bin/python -m playbook_runner playbooks/uthealth.playbook.yaml -d "$who"
+  if .venv/bin/python -m playbook_runner playbooks/uthealth.playbook.yaml -d "$who" --validate; then
+    .venv/bin/python -m playbook_runner playbooks/uthealth.playbook.yaml -d "$who"
+  else
+    echo "SKIP $who — validation failed" >&2
+  fi
 done
 ```
 

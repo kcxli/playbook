@@ -42,7 +42,12 @@ modifiers. The available verbs:
 | `check`  | option label | Tick a checkbox / radio button |
 | `upload` | field label | Attach a file (needs `value:` = file path) |
 | `pick`   | (mapping)   | Choose an answer based on a data value — see below |
-| `sleep`  | seconds | Wait (rarely needed) |
+| `wait_for` | label / text | Block until an element appears (robust alternative to `sleep`) |
+| `scroll` | label, or `top`/`bottom` | Scroll an element into view, or the page to an edge |
+| `hover`  | label | Move the pointer over an element (reveals hover menus) |
+| `press`  | (description) | Send keystrokes / typeahead to a widget (needs `value:`) |
+| `script` | (description) | Run a snippet of JavaScript on the page (needs `value:`) |
+| `sleep`  | seconds | Wait a fixed time (prefer `wait_for`; use only as a last resort) |
 
 ### Examples
 
@@ -143,6 +148,67 @@ chain of conditionals.
 
 ---
 
+## Timing verbs: `wait_for`, `scroll`, `hover`
+
+These ATS pages re-render constantly via AJAX. The fragile way to cope is to
+sprinkle `sleep`/`wait_after` and hope the guess is long enough. The robust way
+is to **wait for the thing you need**:
+
+```yaml
+# Wait until a button/heading/field appears before continuing. Far better than
+# guessing a sleep duration — it proceeds the instant the element is ready, and
+# fails with a clear message if it never shows up.
+- wait_for: "Apply Now"
+
+# Wait on a specific element by selector, with a longer timeout for a slow SPA:
+- wait_for: "application packet"
+  selector: "#packet-root"
+  timeout: 30000            # milliseconds (default is the run's --timeout)
+
+# Scroll a control into view (some lazy-loaded forms only render on scroll, and
+# off-screen buttons can be unclickable):
+- scroll: "Submit Application"
+- scroll: "bottom"          # or "top" — jump to the page edge
+
+# Reveal a hover-triggered menu, then click the item it exposes:
+- hover: "Account"
+- click: "Sign out"
+```
+
+`wait_for` is the recommended replacement for most `sleep`/`wait_after` uses:
+write `wait_for` the *next* element you're about to interact with, instead of
+pausing a fixed number of seconds.
+
+---
+
+## Custom-widget verbs: `press`, `script`
+
+Most controls are reachable with the verbs above. Two escape hatches handle the
+widgets that aren't (custom dropdowns with no real `<option>`s, stuck overlays):
+
+```yaml
+# press: focus a control (via selector) and send keystrokes. `value` is a
+# comma-separated list; a token that names a key (Enter, Tab, Escape, ArrowDown,
+# Backspace, ...) is pressed as that key, anything else is typed as text. This
+# drives typeahead widgets (Angular Material mat-select, comboboxes) that ignore
+# select_option:
+- press: "Select state"        # description for logs only
+  selector: "#state"
+  value: "{{ answers.interfolio_state }}, Enter"
+
+# script: run a small piece of JavaScript on the page. Use sparingly — e.g. to
+# dismiss an overlay that intercepts clicks:
+- script: "Dismiss state overlay"   # description for logs only
+  value: >
+    var b = document.querySelector('.cdk-overlay-backdrop');
+    if (b) { b.click(); }
+```
+
+For `press` and `script` the action argument is just a human-readable label for
+the logs; the real work is in `value` (and, for `press`, the `selector:`).
+
+---
+
 ## Conditions: `when`
 
 Add `when:` to any step to run it only if a condition holds:
@@ -174,9 +240,11 @@ when: '"disabled_veteran" in detailed_personal_info.veteran_status.protected_vet
 | `optional: true` | If the element isn't found / fails, log and continue |
 | `selector:` | Explicit CSS or `xpath=...` locator, bypassing label lookup |
 | `exact: true` | Require an exact accessible-name match |
-| `role:` | For `click`: `button` (default), `link`, or `tab` |
+| `role:` | For `click`: `button` (default), `link`, `tab`, or `option` |
 | `group:` | For `check`: question/fieldset text to scope the options |
+| `scope:` | CSS selector restricting which radio/checkbox set a `check`/`pick` targets |
 | `wait_after:` | Seconds to pause after the step |
+| `timeout:` | For `wait_for`: how long to wait, in milliseconds (overrides `--timeout`) |
 | `label:` | A human description shown in logs instead of the raw action |
 
 ### `selector:` — the escape hatch
@@ -252,11 +320,20 @@ form-specific choices whose text must match the page's options exactly).
 
 ## Authoring workflow
 
-1. Copy an existing playbook and update `url` / labels for the new form.
-2. Run `--dry-run` to confirm every `{{ }}` resolves and `pick`/`when` behave:
+1. **Draft it with the wizard** (fastest start) — it scrapes the page and writes
+   a draft with selectors, mapped values, and `# TODO`s for the rest:
    ```
-   python -m playbook_runner playbooks/new.playbook.yaml -d applicants/jane.json --dry-run
+   python -m playbook_runner wizard "https://careers.example.com/apply/123" \
+       -o playbooks/new.playbook.yaml
    ```
-3. Run for real with `--slow-mo 400` (and not `--headless`) so you can watch and
-   spot any field that needs a `selector:` override.
-4. Add `--screenshot-dir ./shots` so a failing step captures the page.
+   Or start from an existing playbook: copy it and edit `url` / labels.
+2. **Finish the draft**: resolve the `# TODO` fields, set dropdown `value:`s to
+   the exact option text (listed in comments), and complete any `pick` skeletons.
+3. **Validate** that every `{{ }}` resolves, files exist, and `pick`/`when` behave:
+   ```
+   python -m playbook_runner playbooks/new.playbook.yaml -d applicants/jane.json --validate
+   ```
+4. **Run for real** with `--slow-mo 400` (and not `--headless`) so you can watch
+   and spot any field that needs a `selector:` override. Prefer `wait_for` over
+   `sleep` for any timing issues you hit.
+5. Add `--screenshot-dir ./shots` so a failing step captures the page.

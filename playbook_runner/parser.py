@@ -13,10 +13,11 @@ class PlaybookError(Exception):
 
 
 # The single "verb" key that identifies what a step does.
-ACTION_KEYS = {"open", "click", "fill", "select", "check", "upload", "pick", "sleep", "script", "press"}
+ACTION_KEYS = {"open", "click", "fill", "select", "check", "upload", "pick",
+               "sleep", "script", "press", "wait_for", "scroll", "hover"}
 # Keys allowed alongside the action verb.
 MODIFIER_KEYS = {"when", "selector", "optional", "role", "group", "value",
-                 "wait_after", "label", "exact", "scope"}
+                 "wait_after", "label", "exact", "scope", "timeout"}
 
 
 @dataclass
@@ -32,6 +33,7 @@ class Step:
     optional: bool = False          # do not fail if element is missing
     exact: bool = False             # exact accessible-name match
     wait_after: float | None = None  # seconds to wait after the action
+    timeout: int | None = None      # per-step timeout (ms); used by wait_for
     label: str | None = None        # human description for logs
     pick: dict[str, Any] = field(default_factory=dict)  # pick config
     line: int | None = None         # source line for error messages
@@ -109,6 +111,7 @@ def _parse_step(item: Any, index: int) -> Step:
         group=item.get("group"),
         value=item.get("value"),
         wait_after=item.get("wait_after"),
+        timeout=item.get("timeout"),
         label=item.get("label"),
         line=index,
     )
@@ -170,3 +173,13 @@ def _validate_step(step: Step, index: int) -> None:
             float(step.target)
         except (TypeError, ValueError):
             raise PlaybookError(f"step #{index} (sleep): target must be seconds (number)")
+    if step.kind in ("wait_for", "scroll", "hover") and not isinstance(step.target, str):
+        raise PlaybookError(
+            f"step #{index} ({step.kind}): target must be a label/text string "
+            f"(e.g. {step.kind}: \"Apply Now\")"
+        )
+    if step.timeout is not None:
+        try:
+            int(step.timeout)
+        except (TypeError, ValueError):
+            raise PlaybookError(f"step #{index} ({step.kind}): 'timeout' must be milliseconds (integer)")
