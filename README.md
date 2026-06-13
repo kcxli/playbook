@@ -31,20 +31,19 @@ python3 -m venv .venv
 .venv/bin/python -m playwright install chromium
 ```
 
-## Draft a new playbook automatically (the wizard)
+## Draft a new playbook (form-extractor.js)
 
-The fastest way to start a new form: point the wizard at its URL. It opens the
-page, scrapes every field, guesses which applicant-data path each one wants, and
-writes a draft `.playbook.yaml` for you to review.
+To start a new form, open it in your browser, open the DevTools console, and
+paste in the full [tools/form-extractor.js](tools/form-extractor.js). It prints
+a structured summary of the page — labels, stable selectors, native and custom
+dropdown options, radio groups, hidden uploads, same-origin iframe fields, and
+conditional/modal fields discovered by safe probes — and copies it to your
+clipboard. Hand that output to Claude/Codex to draft a `.playbook.yaml`.
 
-```bash
-.venv/bin/python -m playbook_runner wizard "https://careers.example.com/apply/123" \
-    -o playbooks/example.playbook.yaml
-```
-
-Fields it can't map are marked `# TODO`, dropdown options are listed as comments,
-and radio groups become `pick` skeletons. It drafts the page it lands on; for a
-multi-page flow, re-run it on each later page. Then review and validate (below).
+It captures the page you're on; for a multi-page flow, run it on each later page.
+Then review and validate (below). If the form has fields behind a path the safe
+probes did not open, manually pick that answer or open that modal and run the
+extractor again on the revealed state.
 
 ## Use
 

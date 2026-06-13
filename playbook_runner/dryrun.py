@@ -98,6 +98,23 @@ def _describe_resolved(step: Step, context: dict[str, Any]) -> str:
         return f"press   {render_text(step.target, context)!r} <- {render_text(step.value, context)!r}"
     if step.kind == "script":
         return f"script  {render_text(step.target, context)!r} (js)"
+    if step.kind == "search_dialog":
+        return f"search_dialog {render_text(step.target, context)!r} -> {render_text(step.value, context)!r}"
+    if step.kind == "await_email_link":
+        cfg = step.config
+        frm = render_text(cfg["from"], context) if cfg.get("from") else "any"
+        subj = render_text(cfg["subject"], context) if cfg.get("subject") else "any"
+        return f"await_email_link  from~{frm!r} subject~{subj!r} (reads mailbox at run time)"
+    if step.kind == "await_email_code":
+        cfg = step.config
+        field = render_text(cfg["field"], context) if cfg.get("field") else "(selector)"
+        frm = render_text(cfg["from"], context) if cfg.get("from") else "any"
+        to = render_text(cfg["to"], context) if cfg.get("to") else "any"
+        subj = render_text(cfg["subject"], context) if cfg.get("subject") else "any"
+        return (
+            f"await_email_code  fill {field!r} "
+            f"from~{frm!r} to~{to!r} subject~{subj!r} (reads mailbox at run time)"
+        )
     if step.kind == "pick":
         cfg = step.pick
         value = resolve_native(str(cfg["source"]), context)

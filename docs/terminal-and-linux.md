@@ -107,9 +107,8 @@ python3 -m venv .venv
 ## 4. Running this project
 
 ```bash
-# Draft a new playbook from a form URL (the wizard):
-.venv/bin/python -m playbook_runner wizard "https://careers.example.com/apply/1" \
-    -o playbooks/new.playbook.yaml
+# Draft a new playbook: paste tools/form-extractor.js into the DevTools console
+# on the form page, then hand its output to Claude.
 
 # Check a playbook resolves against an applicant, without a browser:
 .venv/bin/python -m playbook_runner playbooks/uthealth.playbook.yaml \
@@ -245,7 +244,7 @@ git log --oneline          # browse past commits
 | Read a file | `less file` (q to quit) |
 | Copy / move / delete | `cp` / `mv` / `rm` (careful!) |
 | Use the project's Python | `.venv/bin/python …` |
-| Draft a playbook | `… -m playbook_runner wizard "<url>" -o out.yaml` |
+| Draft a playbook | paste `tools/form-extractor.js` into DevTools console |
 | Check a playbook | `… -m playbook_runner <pb> -d <data> --validate` |
 | Cancel a running command | `Ctrl-C` |
 | Recall a past command | Up arrow, or `Ctrl-R` to search |

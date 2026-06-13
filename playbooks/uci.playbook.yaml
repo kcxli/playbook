@@ -1,0 +1,189 @@
+version: 1
+name: "UC Irvine — Lecturer Unit 18, Statistics (UC Recruit)"
+job_id: "JPF10017"
+url: "https://recruit.ap.uci.edu/JPF10017"
+
+# =============================================================================
+# UC RECRUIT (AP Recruit) — applicant flow for UCI JPF10017
+# -----------------------------------------------------------------------------
+# Verified against the live site. The important discovery: UC Recruit sign-in is
+# PASSWORDLESS. There is no password field. You enter your email, click "Next",
+# then "Send verification email"; UC Recruit emails you a magic link, and
+# clicking that link logs you in / creates your portfolio. The whole flow hinges
+# on reading that email — which the new `await_email_link` verb does for us over
+# IMAP (see SPEC.md → "await_email_link"). No more manual copy-paste of the link.
+#
+# Required materials for this posting: Curriculum Vitae, Teaching Statement,
+# Teaching Evaluations, 1–3 References (contact info only). Optional: Cover
+# Letter, Statement of Research.
+#
+# ── BEFORE YOU RUN ──────────────────────────────────────────────────────────
+#  1. Mailbox access for the magic link. `await_email_link` reads the inbox of
+#     the SAME address you apply with. Easiest setup: use a Gmail you control and
+#     a "+tag" alias so it's filterable, e.g. apply with  yourname+uci@gmail.com
+#     (Gmail delivers it to yourname@gmail.com). Then export creds before running:
+#        export IMAP_USER="yourname@gmail.com"
+#        export IMAP_PASSWORD="<16-char Gmail APP PASSWORD>"   # NOT your login pw
+#        # (Gmail requires an app password for IMAP: Google Account → Security →
+#        #  2-Step Verification → App passwords. Other providers may take the
+#        #  normal password. IMAP_HOST defaults to imap.gmail.com.)
+#     Put the apply-with address in applicants/uci_overrides.json
+#     (emails.institution_email). Keep secrets in env vars, never in the repo.
+#  2. First run NON-headless with --slow-mo 400 so you can watch. The post-login
+#     application pages (documents/references) are behind auth and were authored
+#     from the documented UC Recruit layout using visible-label matching; adjust
+#     any label/button whose on-screen text differs, then enable submit.
+# =============================================================================
+
+steps:
+  # --- landing page → start the application -----------------------------------
+  # Explicit open (this playbook has a later `open:` step, which disables the
+  # automatic open of `url:` — so we navigate here ourselves).
+  - open: "https://recruit.ap.uci.edu/JPF10017"
+    wait_after: 1
+  - click: "Apply now"            # a <button>; routes to the portfolio sign-in
+    wait_after: 2
+
+  # --- sign in -----------------------------------------------------------------
+  # Step 1: enter the email, click Next. (Verified against the live site.)
+  - fill: "Enter email address or ApplicantID"
+    selector: "#login_email_address"
+    value: "{{ emails.institution_email }}"
+  - click: "Next"
+    wait_after: 2
+
+  # Step 2 — RETURNING USER (this account already exists, so UC Recruit shows a
+  # password field). This is the active path. Tested live end-to-end.
+  - fill: "Password"
+    selector: "#login_password"
+    value: "{{ account.password }}"
+  - click: "Log in"
+    wait_after: 3
+
+  # Step 2 — FIRST-TIME applicant (brand-new email, no account yet). UC Recruit
+  # shows "Send verification email" instead of a password field; it emails a
+  # magic link → a "Choose password" page (itself two steps: password → Continue
+  # → confirmation → Confirm) which creates the account. To create a NEW account,
+  # comment out the two returning-user steps above and uncomment this block.
+  # (This whole flow was verified live; it created the current account.)
+  #  - click: "Send verification email"
+  #    wait_after: 2
+  #  - await_email_link:                 # reads the email over IMAP, opens its link
+  #      subject: "verif"                # email: ap-no-reply@academic-recruit.org
+  #      link_pattern: 'https://recruit\.ap\.uci\.edu/[^\s"<>]*(?:password|verif|confirm|token|auth|portfolio)[^\s"<>]*'
+  #      timeout: 240
+  #    wait_after: 3
+  #  - fill: "New password"
+  #    selector: "#portfolio_password"
+  #    value: "{{ account.password }}"
+  #  - click: "Continue"
+  #    wait_after: 2
+  #  - fill: "Password confirmation"
+  #    selector: "#portfolio_password_confirmation"
+  #    value: "{{ account.password }}"
+  #  - click: "Confirm"
+  #    wait_after: 3
+
+  # --- open this position's application ----------------------------------------
+  - open: "https://recruit.ap.uci.edu/JPF10017/apply"
+    wait_after: 2
+  - click: "Apply now"
+    optional: true
+    wait_after: 2
+  - click: "Continue"
+    optional: true
+    wait_after: 2
+
+  # ===========================================================================
+  # APPLICATION FORM — "Start your application"
+  # Live-captured structure: a single-page wizard with sections in this order:
+  #   Contact information → Degree → Employment → Search Sources → Review.
+  # Document uploads + references are NOT on these sections; they appear after
+  # this applicant-info form is saved (location still to be mapped — see the
+  # DOCUMENTS note at the bottom). Field selectors below are the page's real,
+  # human-readable ids (stable). Required fields are marked * on the page.
+  # ===========================================================================
+
+  # --- Contact information ----------------------------------------------------
+  - fill: "First name"
+    selector: "#applicant_first_name"
+    value: "{{ person_name.legal_name.first }}"
+  - fill: "Last name"
+    selector: "#applicant_last_name"
+    value: "{{ person_name.legal_name.last }}"
+  - fill: "Phone number"
+    selector: "#applicant_phone"
+    value: "{{ address_and_contact.phone_numbers.mobile }}"
+    optional: true
+  - fill: "Mailing address"
+    selector: "#applicant_application_attributes_address"
+    value: "{{ address_and_contact.primary_address.line_1 }}, {{ address_and_contact.primary_address.city }}, {{ address_and_contact.primary_address.state_province }} {{ address_and_contact.primary_address.postal_code }}"
+  - click: "Next: Degree"
+    wait_after: 2
+
+  # --- Degree -----------------------------------------------------------------
+  - fill: "Highest degree"
+    selector: "#applicant_application_attributes_highest_degree_attributes_name"
+    value: "{{ answers.degree }}"
+  # Institution + Affiliation below are <select> dropdowns with a FIXED option
+  # list. The value must match an option's exact text; "{{ answers.school }}" may
+  # not be in the list, so these are optional until confirmed on the live page
+  # (run non-headless, read the options, set the value, then drop `optional`).
+  - select: "Institution"
+    selector: "#applicant_application_attributes_highest_degree_attributes_institution"
+    value: "{{ answers.school }}"
+    optional: true
+  - fill: "Date obtained"
+    selector: "#applicant_application_attributes_highest_degree_attributes_date"
+    value: "{{ answers.degree_year_acquired }}"
+    optional: true
+  # "Degree disciplines" (required) is a multi-select typeahead widget — needs a
+  # `press`-style interaction; TODO map it once option values are confirmed.
+  - click: "Next: Employment"
+    wait_after: 2
+
+  # --- Employment -------------------------------------------------------------
+  - select: "Affiliation or University"
+    selector: "#applicant_affiliation"
+    value: "{{ answers.current_organization }}"
+    optional: true
+  - fill: "Job title"
+    selector: "#applicant_current_job_title"
+    value: "{{ answers.current_title }}"
+  - click: "Next: Search Sources"
+    wait_after: 2
+
+  # --- Search Sources (how you heard about the posting) -----------------------
+  - check: "UCI website"
+    selector: "#applicant_application_attributes_search_source_ids_207"
+    optional: true
+  - click: "Next: Review"
+    wait_after: 2
+
+  # --- Save the applicant information -----------------------------------------
+  - click: "Save my information"
+    optional: true
+    wait_after: 3
+
+  # --- DOCUMENTS + REFERENCES (TODO — not yet mapped) -------------------------
+  # Required materials (CV, Teaching Statement, Teaching Evaluations) and the
+  # 1–3 references are NOT on the wizard above — UC Recruit presents them after
+  # the applicant info is saved, on the application overview. That page is behind
+  # the completed/saved form, so it still needs to be captured on a live run:
+  # fill the sections above with real data, save, then scrape the documents +
+  # references controls and add `upload:` / reference steps here.
+  #
+  # Document data is ready in the profile:
+  #   {{ documents.resume_path_or_url }}        (CV)
+  #   {{ documents.teaching_statement_path }}
+  #   {{ documents.teaching_evaluations_path }}
+  #   {{ documents.cover_letter_path_or_url }}  (optional)
+  #   {{ documents.statement_of_research_path }} (optional)
+  # Reference data: {{ references.0.name/email/company/title }}
+
+  # --- review & submit --------------------------------------------------------
+  # Intentionally disabled — never submit before a human review.
+  - scroll: "bottom"
+    optional: true
+  # - click: "Submit application"
+  #   wait_after: 3

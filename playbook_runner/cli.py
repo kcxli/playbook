@@ -1,13 +1,11 @@
 """Command-line entry point for the playbook runner.
 
-Two subcommands:
-
-  run     (default)  drive a .playbook against a live form with Playwright
-  wizard             open a URL, scrape its form, and draft a new .playbook
-
-``run`` is the default, so the historical invocation still works unchanged::
+Drives a .playbook against a live form with Playwright::
 
     python -m playbook_runner playbooks/uthealth.playbook.yaml -d applicants/test.json
+
+To draft a NEW playbook, use ``tools/form-extractor.js`` (paste it into the
+DevTools console on the application page and hand its output to Claude).
 """
 from __future__ import annotations
 
@@ -25,8 +23,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m playbook_runner",
         description=(
             "Run a .playbook file against an application form with Playwright.\n\n"
-            "To draft a NEW playbook from a live page instead, run:\n"
-            "    python -m playbook_runner wizard <url>"
+            "To draft a NEW playbook, paste tools/form-extractor.js into the\n"
+            "DevTools console on the form page and hand its output to Claude."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -55,13 +53,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-
-    # Subcommand dispatch. 'wizard' is explicit; anything else is a 'run' (so the
-    # original `... <playbook> -d <data>` invocation keeps working untouched).
-    if argv and argv[0] == "wizard":
-        from .wizard import main as wizard_main
-        return wizard_main(argv[1:])
-
     return _run(argv)
 
 

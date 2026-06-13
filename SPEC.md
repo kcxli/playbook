@@ -48,6 +48,8 @@ modifiers. The available verbs:
 | `press`  | (description) | Send keystrokes / typeahead to a widget (needs `value:`) |
 | `script` | (description) | Run a snippet of JavaScript on the page (needs `value:`) |
 | `sleep`  | seconds | Wait a fixed time (prefer `wait_for`; use only as a last resort) |
+| `await_email_link` | (mapping) | Read a just-arrived email over IMAP and follow the link inside it — see below |
+| `await_email_code` | (mapping) | Read a just-arrived email over IMAP, extract a verification code, and fill it |
 
 ### Examples
 
@@ -180,6 +182,58 @@ write `wait_for` the *next* element you're about to interact with, instead of
 pausing a fixed number of seconds.
 
 ---
+
+## Email magic-links: `await_email_link`
+
+Some sign-ins are **passwordless**: the site emails you a one-time link and you
+have to click it to continue (UC Recruit works exactly this way — enter email,
+"Send verification email", then click the link). `await_email_link` closes that
+gap: it watches a mailbox over IMAP, finds the message that just arrived, pulls
+the link out of it, and navigates the browser there — no manual copy-paste, so a
+run stays end-to-end.
+
+```yaml
+- click: "Send verification email"
+- await_email_link:
+    subject: "verif"          # only consider mail whose Subject contains this
+    from: "recruit"           # optional: and whose From contains this
+    link_pattern: 'https://recruit\.ap\.uci\.edu/[^\s"<>]+(verif|confirm|token)[^\s"<>]*'
+    timeout: 240              # seconds to wait for the email (default 180)
+    poll: 5                   # seconds between inbox checks (default 5)
+  wait_after: 3
+```
+
+- **Credentials come from the environment, not the playbook** — set `IMAP_USER`
+  and `IMAP_PASSWORD` (and optionally `IMAP_HOST`, default `imap.gmail.com`).
+  For Gmail the password must be a **16-character app password** (Google Account
+  → Security → 2-Step Verification → App passwords), not your normal login
+  password. You *may* instead put templated `username:`/`password:` keys in the
+  step (resolved from the data file) — keep those in a gitignored profile.
+- It reads the inbox of **the address you applied with**. A convenient trick is a
+  Gmail `+tag` alias: apply with `you+uci@gmail.com` (mail still lands in
+  `you@gmail.com`), so each site is filterable and `IMAP_USER` stays your real
+  address.
+- **Only mail newer than the run's start counts**, so a stale link from an
+  earlier run is never reused. `link_pattern` defaults to the first `http(s)`
+  link; set it to target the real link and skip footer/logo URLs.
+
+### Email verification codes: `await_email_code`
+
+Some account-creation forms email a short code instead of a clickable link. Use
+`await_email_code` after clicking the site's "Get Code" / "Send code" control:
+
+```yaml
+- click: "Get Code"
+- await_email_code:
+    field: "Verification Code"
+    to: "{{ account.email }}"
+    code_pattern: '\b([0-9]{4,8})\b'
+    timeout: 240
+```
+
+Credentials and freshness rules are the same as `await_email_link`. If
+`selector:` is provided on the step, it fills that control; otherwise it locates
+the control by `field:`.
 
 ## Custom-widget verbs: `press`, `script`
 
@@ -320,12 +374,9 @@ form-specific choices whose text must match the page's options exactly).
 
 ## Authoring workflow
 
-1. **Draft it with the wizard** (fastest start) — it scrapes the page and writes
-   a draft with selectors, mapped values, and `# TODO`s for the rest:
-   ```
-   python -m playbook_runner wizard "https://careers.example.com/apply/123" \
-       -o playbooks/new.playbook.yaml
-   ```
+1. **Extract the form** — open the page, open the DevTools console, and paste in
+   [tools/form-extractor.js](tools/form-extractor.js). It prints every field's
+   label, stable selector, and options; hand that to Claude to draft a playbook.
    Or start from an existing playbook: copy it and edit `url` / labels.
 2. **Finish the draft**: resolve the `# TODO` fields, set dropdown `value:`s to
    the exact option text (listed in comments), and complete any `pick` skeletons.

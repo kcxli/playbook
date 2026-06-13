@@ -7,6 +7,7 @@ when the playbook provides one.
 """
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -64,6 +65,8 @@ class Engine:
         self._pw = None
         self._browser = None
         self.page = None
+        self._started_at = time.time()  # only await_email_link mail newer than this counts
+        self._return_page = None
 
     # -- lifecycle ---------------------------------------------------------
     def __enter__(self) -> "Engine":
@@ -71,9 +74,21 @@ class Engine:
 
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=self.headless, slow_mo=self.slow_mo)
-        ctx = self._browser.new_context(accept_downloads=True)
+        # Present a normal desktop-Chrome identity. Playwright's default headless
+        # user-agent contains "HeadlessChrome", which some ATS/recruiting sites
+        # (UC Recruit among them) bot-block by serving a blank page. A realistic
+        # UA avoids that and changes nothing for sites that don't care.
+        ctx = self._browser.new_context(
+            accept_downloads=True,
+            user_agent=os.environ.get(
+                "PLAYBOOK_USER_AGENT",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            ),
+        )
         ctx.set_default_timeout(self.default_timeout)
         self.page = ctx.new_page()
+        self._started_at = time.time()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -92,6 +107,7 @@ class Engine:
             self._settle()
 
         for n, step in enumerate(playbook.steps, start=1):
+            self._ensure_live_page()
             if step.when is not None and not conditions.evaluate(step.when, self.context):
                 self.log(f"  · skip [{n}] {step.describe()}  (when: {step.when})")
                 continue
@@ -121,13 +137,22 @@ class Engine:
     def _do_click(self, step: Step) -> None:
         name = render_text(step.target, self.context)
         loc = self._clickable(name, step)
-        ctx = self.page.context
-        pages_before = len(ctx.pages)
-        loc.click()
+        opener = self.page
+        popup = None
+        clicked = False
+        try:
+            with self.page.expect_popup(timeout=2500) as popup_info:
+                loc.click()
+                clicked = True
+            popup = popup_info.value
+        except Exception:
+            if not clicked:
+                loc.click()
+        if popup is not None:
+            self._return_page = opener
+            self.page = popup
         self._settle()
-        if len(ctx.pages) > pages_before:
-            self.page = ctx.pages[-1]
-            self._settle()
+        self._ensure_live_page()
 
     def _do_fill(self, step: Step) -> None:
         field = render_text(step.target, self.context)
@@ -213,6 +238,257 @@ class Engine:
     def _do_script(self, step: Step) -> None:
         js = render_text(step.value, self.context)
         self.page.evaluate(js)
+
+    def _do_search_dialog(self, step: Step) -> None:
+        """Drive a PageUp SearchDialog popup.
+
+        PageUp lookup fields (Major, Company name) open a small
+        ``SearchDialog.aspx`` window. The normal playbook verbs can miss that
+        window if the browser doesn't report it as the current page, so this
+        verb explicitly finds the dialog, searches, selects the best matching
+        option, clicks Select, and returns to the opener.
+        """
+        label = render_text(step.target, self.context)
+        query = render_text(step.value, self.context)
+        opener = self._return_page if self._return_page else self.page
+        dialog = self._find_search_dialog(label)
+        if dialog is None:
+            raise StepError(step, f"could not find PageUp search dialog for {label!r}")
+
+        self.page = dialog
+        dialog.locator("input[id$='MainContentPlaceHolder_SearchText'], input[type='text']").first.fill(query)
+        search = dialog.locator(
+            "input[id$='MainContentPlaceHolder_SearchButton'], "
+            "input[value='Search'], button:has-text('Search'), input[type='button'][value='Search']"
+        ).first
+        if search.count() > 0:
+            search.click()
+            self._settle()
+
+        selects = dialog.locator("select[id$='MainContentPlaceHolder_SearchSelectBox'], select")
+        select = selects.last if selects.count() > 1 else selects.first
+        select.wait_for(state="visible", timeout=self.default_timeout)
+        self._select_best_option(select, query, step)
+
+        dialog.locator("input[value='Select'], button:has-text('Select')").first.click()
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            try:
+                if dialog.is_closed():
+                    break
+            except Exception:
+                break
+            time.sleep(0.1)
+        if opener is not None:
+            self.page = opener
+        self._ensure_live_page()
+
+    def _do_await_email_link(self, step: Step) -> None:
+        """Poll a mailbox over IMAP for a just-arrived message, extract the first
+        link matching ``link_pattern``, and navigate the page to it.
+
+        This unblocks the very common "click the link we emailed you" gate
+        (magic-link sign-in, account/email verification) that otherwise stops an
+        automated run cold. Credentials come from env vars (preferred) or
+        templated ``username``/``password`` in the config; matching/extraction
+        come from the playbook. Only mail newer than the run's start counts, so a
+        stale verification email from a previous run is never reused.
+        """
+        import email as _email
+        import imaplib
+        import re
+        from email.utils import parsedate_to_datetime
+
+        cfg = step.config
+        host = (render_text(cfg["imap_host"], self.context) if cfg.get("imap_host")
+                else os.environ.get("IMAP_HOST", "imap.gmail.com"))
+        user = (render_text(cfg["username"], self.context) if cfg.get("username")
+                else os.environ.get("IMAP_USER", ""))
+        password = (render_text(cfg["password"], self.context) if cfg.get("password")
+                    else os.environ.get("IMAP_PASSWORD", ""))
+        if not user or not password:
+            raise StepError(step, "await_email_link: no mailbox credentials — set "
+                                  "IMAP_USER and IMAP_PASSWORD (an app password for "
+                                  "Gmail), or username:/password: in the step")
+        mailbox = render_text(cfg.get("mailbox") or "INBOX", self.context)
+        want_from = (render_text(cfg["from"], self.context) if cfg.get("from") else "").lower()
+        want_subj = (render_text(cfg["subject"], self.context) if cfg.get("subject") else "").lower()
+        pattern = re.compile(render_text(cfg["link_pattern"], self.context)
+                             if cfg.get("link_pattern") else r"https?://\S+")
+        timeout_s = float(cfg["timeout"]) if cfg.get("timeout") else 180.0
+        poll_s = float(cfg["poll"]) if cfg.get("poll") else 5.0
+        # Mail clocks can lag the local clock; allow a small backdate so a fast
+        # send isn't filtered out as "too old".
+        floor = self._started_at - 60
+
+        def body_text(msg) -> str:
+            chunks = []
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() in ("text/plain", "text/html"):
+                        try:
+                            chunks.append(part.get_payload(decode=True).decode(
+                                part.get_content_charset() or "utf-8", "replace"))
+                        except Exception:
+                            pass
+            else:
+                try:
+                    chunks.append(msg.get_payload(decode=True).decode(
+                        msg.get_content_charset() or "utf-8", "replace"))
+                except Exception:
+                    pass
+            return "\n".join(chunks)
+
+        self.log(f"  · await_email_link: polling {user}@{host} for a link "
+                 f"(from~{want_from or 'any'}, subject~{want_subj or 'any'})")
+        deadline = time.time() + timeout_s
+        imap = imaplib.IMAP4_SSL(host)
+        try:
+            imap.login(user, password)
+            while True:
+                imap.select(mailbox)
+                # Newest first; only need to scan the most recent handful.
+                typ, data = imap.search(None, "ALL")
+                ids = data[0].split() if typ == "OK" and data and data[0] else []
+                for mid in reversed(ids[-25:]):
+                    typ, msg_data = imap.fetch(mid, "(RFC822)")
+                    if typ != "OK" or not msg_data or not msg_data[0]:
+                        continue
+                    msg = _email.message_from_bytes(msg_data[0][1])
+                    try:
+                        when = parsedate_to_datetime(msg.get("Date")).timestamp()
+                    except Exception:
+                        when = None
+                    if when is not None and when < floor:
+                        continue
+                    if want_from and want_from not in (msg.get("From", "")).lower():
+                        continue
+                    if want_subj and want_subj not in (msg.get("Subject", "")).lower():
+                        continue
+                    m = pattern.search(body_text(msg))
+                    if m:
+                        link = m.group(0).rstrip('"\'<>)].,').replace("&amp;", "&")
+                        self.log(f"  · found link, navigating: {link[:90]}")
+                        self.page.goto(link)
+                        self._settle()
+                        return
+                if time.time() >= deadline:
+                    raise StepError(step, f"await_email_link: no matching email with a "
+                                          f"link in {int(timeout_s)}s")
+                time.sleep(poll_s)
+        finally:
+            try:
+                imap.logout()
+            except Exception:
+                pass
+
+    def _do_await_email_code(self, step: Step) -> None:
+        """Poll a mailbox for a just-arrived verification code and fill it.
+
+        CUHK-style account creation sends a numeric code, not a magic link. This
+        verb mirrors ``await_email_link`` but extracts a code with
+        ``code_pattern`` and types it into ``field:``/``selector:``.
+        """
+        import email as _email
+        import imaplib
+        import re
+        from email.utils import parsedate_to_datetime
+
+        cfg = step.config
+        host = (render_text(cfg["imap_host"], self.context) if cfg.get("imap_host")
+                else os.environ.get("IMAP_HOST", "imap.gmail.com"))
+        user = (render_text(cfg["username"], self.context) if cfg.get("username")
+                else os.environ.get("IMAP_USER", ""))
+        password = (render_text(cfg["password"], self.context) if cfg.get("password")
+                    else os.environ.get("IMAP_PASSWORD", ""))
+        if not user or not password:
+            raise StepError(step, "await_email_code: no mailbox credentials — set "
+                                  "IMAP_USER and IMAP_PASSWORD (an app password for "
+                                  "Gmail), or username:/password: in the step")
+
+        mailbox = render_text(cfg.get("mailbox") or "INBOX", self.context)
+        want_from = (render_text(cfg["from"], self.context) if cfg.get("from") else "").lower()
+        want_to = (render_text(cfg["to"], self.context) if cfg.get("to") else "").lower()
+        want_subj = (render_text(cfg["subject"], self.context) if cfg.get("subject") else "").lower()
+        pattern = re.compile(
+            render_text(cfg["code_pattern"], self.context)
+            if cfg.get("code_pattern")
+            else r"\b([0-9]{4,8})\b"
+        )
+        timeout_s = float(cfg["timeout"]) if cfg.get("timeout") else 180.0
+        poll_s = float(cfg["poll"]) if cfg.get("poll") else 5.0
+        floor = self._started_at - 60
+
+        def body_text(msg) -> str:
+            chunks = []
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() in ("text/plain", "text/html"):
+                        try:
+                            chunks.append(part.get_payload(decode=True).decode(
+                                part.get_content_charset() or "utf-8", "replace"))
+                        except Exception:
+                            pass
+            else:
+                try:
+                    chunks.append(msg.get_payload(decode=True).decode(
+                        msg.get_content_charset() or "utf-8", "replace"))
+                except Exception:
+                    pass
+            return "\n".join(chunks)
+
+        self.log(f"  · await_email_code: polling {user}@{host} for a code "
+                 f"(from~{want_from or 'any'}, to~{want_to or 'any'}, "
+                 f"subject~{want_subj or 'any'})")
+        deadline = time.time() + timeout_s
+        imap = imaplib.IMAP4_SSL(host)
+        try:
+            imap.login(user, password)
+            while True:
+                imap.select(mailbox)
+                typ, data = imap.search(None, "ALL")
+                ids = data[0].split() if typ == "OK" and data and data[0] else []
+                for mid in reversed(ids[-25:]):
+                    typ, msg_data = imap.fetch(mid, "(RFC822)")
+                    if typ != "OK" or not msg_data or not msg_data[0]:
+                        continue
+                    msg = _email.message_from_bytes(msg_data[0][1])
+                    try:
+                        when = parsedate_to_datetime(msg.get("Date")).timestamp()
+                    except Exception:
+                        when = None
+                    if when is not None and when < floor:
+                        continue
+                    if want_from and want_from not in (msg.get("From", "")).lower():
+                        continue
+                    if want_subj and want_subj not in (msg.get("Subject", "")).lower():
+                        continue
+                    text = body_text(msg)
+                    if want_to:
+                        to_headers = " ".join([
+                            msg.get("To", ""),
+                            msg.get("Cc", ""),
+                            msg.get("Delivered-To", ""),
+                            msg.get("X-Original-To", ""),
+                        ]).lower()
+                        if want_to not in to_headers and want_to not in text.lower():
+                            continue
+                    m = pattern.search(text)
+                    if m:
+                        code = (m.group(1) if m.groups() else m.group(0)).strip()
+                        field = render_text(cfg.get("field") or "Verification Code", self.context)
+                        self.log(f"  · found verification code: {code}")
+                        self._control(field, step, kinds=("input", "textarea")).fill(code)
+                        return
+                if time.time() >= deadline:
+                    raise StepError(step, f"await_email_code: no matching email with a "
+                                          f"code in {int(timeout_s)}s")
+                time.sleep(poll_s)
+        finally:
+            try:
+                imap.logout()
+            except Exception:
+                pass
 
     def _do_press(self, step: Step) -> None:
         """Send keyboard input. ``selector:`` focuses an element first; then each
@@ -315,6 +591,92 @@ class Engine:
             self.page.wait_for_timeout(ms)
         except Exception:
             time.sleep(ms / 1000.0)
+
+    def _find_search_dialog(self, label: str):
+        """Find the PageUp search popup among open pages."""
+        deadline = time.monotonic() + max(self.default_timeout, 1000) / 1000.0
+        while True:
+            try:
+                pages = [p for ctx in self._browser.contexts for p in ctx.pages if not p.is_closed()]
+            except Exception:
+                pages = []
+            for page in reversed(pages):
+                try:
+                    url = page.url or ""
+                    title = page.title() or ""
+                    if ("SearchDialog.aspx" in url or "Search -" in title or
+                            title.strip().lower() == "search" or label.lower() in title.lower()):
+                        return page
+                    if page.locator("input[id$='MainContentPlaceHolder_SearchText'], input[type='text']").count() > 0 \
+                            and page.locator("input[value='Search'], button:has-text('Search')").count() > 0:
+                        return page
+                except Exception:
+                    continue
+            if time.monotonic() >= deadline:
+                return None
+            self._poll_pause()
+
+    def _select_best_option(self, select, query: str, step: Step) -> None:
+        """Select the exact option when possible, else the first containing match."""
+        want = _norm_label(query)
+        deadline = time.monotonic() + max(self.default_timeout, 1000) / 1000.0
+        seen = []
+        while True:
+            options = select.locator("option")
+            try:
+                count = options.count()
+            except Exception as exc:
+                raise StepError(step, f"could not read search results: {exc}") from exc
+
+            fallback = None
+            seen = []
+            loading = False
+            for i in range(count):
+                opt = options.nth(i)
+                text = opt.inner_text().strip()
+                value = opt.get_attribute("value") or text
+                norm = _norm_label(text)
+                if text:
+                    seen.append(text)
+                if norm in ("loading", "loading...", "please wait"):
+                    loading = True
+                    continue
+                if norm == want:
+                    select.select_option(value=value)
+                    return
+                if fallback is None and want in norm:
+                    fallback = value
+
+            if fallback is not None:
+                select.select_option(value=fallback)
+                return
+            if not loading or time.monotonic() >= deadline:
+                break
+            self._poll_pause()
+
+        preview = ", ".join(seen[:8])
+        raise StepError(step, f"no search result matching {query!r}; first results: {preview}")
+
+    def _ensure_live_page(self) -> None:
+        """If a popup closed itself, return to the still-open application page."""
+        try:
+            if self.page and not self.page.is_closed():
+                return
+        except Exception:
+            pass
+        try:
+            if self._return_page and not self._return_page.is_closed():
+                self.page = self._return_page
+                return
+        except Exception:
+            pass
+        try:
+            for page in reversed(self._browser.contexts[0].pages):
+                if not page.is_closed():
+                    self.page = page
+                    return
+        except Exception:
+            pass
 
     def _by_selector(self, selector: str):
         """Resolve an explicit selector, searching iframes; falls back to the

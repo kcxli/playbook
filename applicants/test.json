@@ -243,6 +243,26 @@
     "school": "University Of Houston",
     "license_cert": "Council of Clin Research Coord(30143)",
     "race_ethnicity": "Hispanic or Latino",
-    "nyulangone_employee_id": ""
+    "nyulangone_employee_id": "",
+    "cuhk_applied_division": "Statistics",
+    "cuhk_applied_class_of_appointment": "Tenure-Track",
+    "cuhk_applied_position": "Assistant Professor",
+    "cuhk_id_type": "Other",
+    "cuhk_id_type_other": "Other",
+    "cuhk_id_number": "N/A",
+    "cuhk_research_interest": "Applied statistics, clinical trial design, and biomedical data science",
+    "cuhk_emergency_contact_name": "Dr. Anita Powell",
+    "cuhk_emergency_contact_relationship": "Professional reference",
+    "cuhk_emergency_contact_number": "713-555-0190",
+    "cuhk_emergency_contact_address": "Baylor College of Medicine, Houston, TX",
+    "cuhk_degree": "Bachelor of Science (B.Sc.)",
+    "cuhk_type_of_employment": "Full-Time",
+    "cuhk_publication_type": "Journal Article",
+    "cuhk_publication_work_type": "Research Article",
+    "cuhk_publication_title": "Clinical trial operations and data quality in multicenter oncology studies",
+    "cuhk_publication_authors": "Marcus T. Reyes; Anita Powell",
+    "cuhk_publication_venue": "Journal of Clinical Research Operations",
+    "cuhk_publication_status": "Published",
+    "cuhk_publication_description": "Applied statistical monitoring and data quality workflows for multicenter clinical studies."
   }
 }

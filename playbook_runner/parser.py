@@ -14,7 +14,8 @@ class PlaybookError(Exception):
 
 # The single "verb" key that identifies what a step does.
 ACTION_KEYS = {"open", "click", "fill", "select", "check", "upload", "pick",
-               "sleep", "script", "press", "wait_for", "scroll", "hover"}
+               "sleep", "script", "press", "wait_for", "scroll", "hover",
+               "await_email_link", "await_email_code", "search_dialog"}
 # Keys allowed alongside the action verb.
 MODIFIER_KEYS = {"when", "selector", "optional", "role", "group", "value",
                  "wait_after", "label", "exact", "scope", "timeout"}
@@ -36,6 +37,7 @@ class Step:
     timeout: int | None = None      # per-step timeout (ms); used by wait_for
     label: str | None = None        # human description for logs
     pick: dict[str, Any] = field(default_factory=dict)  # pick config
+    config: dict[str, Any] = field(default_factory=dict)  # await_email_link config
     line: int | None = None         # source line for error messages
 
     def describe(self) -> str:
@@ -118,6 +120,10 @@ def _parse_step(item: Any, index: int) -> Step:
 
     if kind == "pick":
         step.pick = _parse_pick(item["pick"], index)
+    elif kind == "await_email_link":
+        step.config = _parse_email_cfg(item["await_email_link"], index)
+    elif kind == "await_email_code":
+        step.config = _parse_email_code_cfg(item["await_email_code"], index)
     else:
         step.target = item[kind]
 
@@ -148,6 +154,75 @@ def _parse_pick(cfg: Any, index: int) -> dict[str, Any]:
     }
 
 
+def _parse_email_cfg(cfg: Any, index: int) -> dict[str, Any]:
+    """Validate an ``await_email_link`` mapping.
+
+    Matching/extraction live in the playbook; the IMAP *credentials* do not —
+    they come from env vars (IMAP_HOST/IMAP_USER/IMAP_PASSWORD) or, if you must,
+    templated ``username``/``password`` keys (put those in a gitignored data
+    file, never in the playbook). All keys are optional except that *some* way to
+    reach a mailbox must resolve at run time.
+    """
+    if not isinstance(cfg, dict):
+        raise PlaybookError(
+            f"step #{index} (await_email_link): value must be a mapping "
+            f"(from:/subject:/link_pattern: ...)"
+        )
+    allowed = {"from", "subject", "link_pattern", "imap_host", "mailbox",
+               "username", "password", "timeout", "poll"}
+    unknown = set(cfg) - allowed
+    if unknown:
+        raise PlaybookError(
+            f"step #{index} (await_email_link): unknown keys {sorted(unknown)}; "
+            f"allowed: {sorted(allowed)}"
+        )
+    return {
+        "from": cfg.get("from"),
+        "subject": cfg.get("subject"),
+        "link_pattern": cfg.get("link_pattern"),
+        "imap_host": cfg.get("imap_host"),
+        "mailbox": cfg.get("mailbox", "INBOX"),
+        "username": cfg.get("username"),
+        "password": cfg.get("password"),
+        "timeout": cfg.get("timeout"),
+        "poll": cfg.get("poll"),
+    }
+
+
+def _parse_email_code_cfg(cfg: Any, index: int) -> dict[str, Any]:
+    """Validate an ``await_email_code`` mapping.
+
+    It is the code-oriented sibling of ``await_email_link``: poll IMAP, extract
+    a short verification code, and fill it into a field on the current page.
+    """
+    if not isinstance(cfg, dict):
+        raise PlaybookError(
+            f"step #{index} (await_email_code): value must be a mapping "
+            f"(field:/from:/subject:/code_pattern: ...)"
+        )
+    allowed = {"field", "from", "to", "subject", "code_pattern", "imap_host",
+               "mailbox", "username", "password", "timeout", "poll"}
+    unknown = set(cfg) - allowed
+    if unknown:
+        raise PlaybookError(
+            f"step #{index} (await_email_code): unknown keys {sorted(unknown)}; "
+            f"allowed: {sorted(allowed)}"
+        )
+    return {
+        "field": cfg.get("field"),
+        "from": cfg.get("from"),
+        "to": cfg.get("to"),
+        "subject": cfg.get("subject"),
+        "code_pattern": cfg.get("code_pattern"),
+        "imap_host": cfg.get("imap_host"),
+        "mailbox": cfg.get("mailbox", "INBOX"),
+        "username": cfg.get("username"),
+        "password": cfg.get("password"),
+        "timeout": cfg.get("timeout"),
+        "poll": cfg.get("poll"),
+    }
+
+
 def _norm_key(key: Any) -> Any:
     """Normalize map keys so YAML true/false/null and strings all match."""
     if isinstance(key, bool) or key is None:
@@ -164,7 +239,7 @@ def _norm_key(key: Any) -> Any:
 
 
 def _validate_step(step: Step, index: int) -> None:
-    if step.kind in ("fill", "select", "upload", "script", "press") and step.value is None:
+    if step.kind in ("fill", "select", "upload", "script", "press", "search_dialog") and step.value is None:
         raise PlaybookError(f"step #{index} ({step.kind}): requires a 'value'")
     if step.kind == "open" and not isinstance(step.target, str):
         raise PlaybookError(f"step #{index} (open): target must be a URL string")
@@ -177,6 +252,11 @@ def _validate_step(step: Step, index: int) -> None:
         raise PlaybookError(
             f"step #{index} ({step.kind}): target must be a label/text string "
             f"(e.g. {step.kind}: \"Apply Now\")"
+        )
+    if step.kind == "await_email_code" and not (step.config.get("field") or step.selector):
+        raise PlaybookError(
+            f"step #{index} (await_email_code): requires field: or selector: "
+            "so the extracted code can be filled"
         )
     if step.timeout is not None:
         try:
