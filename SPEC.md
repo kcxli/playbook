@@ -376,15 +376,37 @@ form-specific choices whose text must match the page's options exactly).
 
 1. **Extract the form** — open the page, open the DevTools console, and paste in
    [tools/form-extractor.js](tools/form-extractor.js). It prints every field's
-   label, stable selector, and options; hand that to Claude to draft a playbook.
-   Or start from an existing playbook: copy it and edit `url` / labels.
-2. **Finish the draft**: resolve the `# TODO` fields, set dropdown `value:`s to
+   label, stable selector, and options, followed by a
+   `PLAYBOOK_EXTRACT_JSON_START` / `PLAYBOOK_EXTRACT_JSON_END` block. Save the
+   full output for the draft generator, or hand it to Claude/Codex to draft a
+   playbook. Or start from an existing playbook: copy it and edit `url` /
+   labels.
+2. **Generate the first draft** when you have extractor output:
+   ```
+   python3 tools/draft_playbook.py \
+     --collect \
+     --name "Site Application" \
+     --url "https://..." \
+     --job-id "..." \
+     --out playbooks/site.playbook.yaml
+   ```
+   Paste each page's full extractor output into that one running command. The
+   generator saves each completed paste when it sees
+   `PLAYBOOK_EXTRACT_JSON_END`, appends it to one combined capture file, and
+   regenerates the same draft playbook. Press `Ctrl-D` only after the last
+   page/state. Wait to hand-edit the generated playbook until the capture pass
+   is done. The generator writes conservative field steps and comments out
+   navigation/submit-like buttons until a human enables them.
+3. **Finish the draft**: resolve the `# TODO` fields, set dropdown `value:`s to
    the exact option text (listed in comments), and complete any `pick` skeletons.
-3. **Validate** that every `{{ }}` resolves, files exist, and `pick`/`when` behave:
+4. **Validate** that every `{{ }}` resolves, files exist, and `pick`/`when` behave:
    ```
    python -m playbook_runner playbooks/new.playbook.yaml -d applicants/jane.json --validate
    ```
-4. **Run for real** with `--slow-mo 400` (and not `--headless`) so you can watch
+5. **Run for real** with `--slow-mo 400` (and not `--headless`) so you can watch
    and spot any field that needs a `selector:` override. Prefer `wait_for` over
    `sleep` for any timing issues you hit.
-5. Add `--screenshot-dir ./shots` so a failing step captures the page.
+6. Add `--screenshot-dir ./shots/<site>` so a failing step captures a targeted
+   artifact bundle like `shots/<site>/error-step-048/`. Share that one folder
+   (`screenshot.png`, `page.html`, `failure.txt`) when asking Codex to debug;
+   avoid sending the whole historical `shots/` directory.

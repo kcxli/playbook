@@ -1,0 +1,332 @@
+{
+  "application_profile_version": "1.0",
+  "last_updated": "{{ builtins.today_iso }}",
+  "profile_completeness": {
+    "status": "ready",
+    "missing_required_fields": []
+  },
+
+  "account": {
+    "user_name": "arao_stats_{{ builtins.unique }}",
+    "password": "StatsTest!2026-A",
+    "email": "anika.rao.test+{{ builtins.unique }}@example.com"
+  },
+
+  "person_name": {
+    "legal_name": {
+      "prefix": "Dr.",
+      "first": "Anika",
+      "middle": "Meera",
+      "last": "Rao",
+      "suffix": "",
+      "two_last_names": {
+        "has_two_last_names": false,
+        "last_name_1": "",
+        "last_name_2": "",
+        "display_format": ""
+      },
+      "initials": "AMR"
+    },
+    "preferred_name": {
+      "use_preferred_name": true,
+      "preferred_first": "Ani",
+      "preferred_middle": "",
+      "preferred_last": "Rao"
+    },
+    "prior_legal_names": []
+  },
+
+  "identity_and_status": {
+    "gender": { "value": "Non-Binary", "custom_value": "", "prefer_not_to_say": false },
+    "pronouns": { "set": "they/them", "custom": "" },
+    "sexual_orientation": { "value": "", "prefer_not_to_say": true },
+    "marital_status": { "value": "Single", "prefer_not_to_say": false }
+  },
+
+  "detailed_personal_info": {
+    "date_of_birth": "1991-11-03",
+    "ethnicity": { "value": "Not Hispanic or Latino", "prefer_not_to_say": false },
+    "disability_status": {
+      "value": "yes",
+      "accommodation_needed": true,
+      "accommodation_details": "Accessible interview materials and captioned remote meetings requested."
+    },
+    "veteran_status": {
+      "value": "no",
+      "protected_veteran_categories": []
+    },
+    "birth_and_citizenship": {
+      "place_of_birth": { "city": "Bengaluru", "state_province": "Karnataka", "country": "India" },
+      "citizenship_country": "India",
+      "work_authorization_country": "United States",
+      "requires_visa_sponsorship": true,
+      "visa_status": {
+        "type": "F-1 OPT",
+        "expiration_date": "2027-07-31",
+        "notes": "Currently work-authorized through OPT; will require future H-1B or equivalent sponsorship."
+      }
+    }
+  },
+
+  "address_and_contact": {
+    "primary_address": {
+      "line_1": "770 Massachusetts Avenue",
+      "line_2": "Apt 5C",
+      "city": "Cambridge",
+      "state_province": "Massachusetts",
+      "postal_code": "02139",
+      "country": "United States"
+    },
+    "mailing_address": {
+      "same_as_primary": true,
+      "line_1": "", "line_2": "", "city": "", "state_province": "", "postal_code": "", "country": ""
+    },
+    "phone_numbers": {
+      "country_code": "+1",
+      "mobile": "6175550182",
+      "home": "",
+      "work": "",
+      "allow_same_number_for_all": true
+    }
+  },
+
+  "emails": {
+    "personal_email": "anika.rao.test+{{ builtins.unique }}@example.com",
+    "institution_email": "anika.rao.test+{{ builtins.unique }}@example.com",
+    "work_email": "anika.rao.work.test@example.edu",
+    "preferred_contact_email": "anika.rao.test+{{ builtins.unique }}@example.com"
+  },
+
+  "best_time_to_contact": {
+    "time_zone": "America/New_York",
+    "preferred_windows": [
+      { "days": ["Tue", "Wed", "Thu", "Fri"], "start_time": "09:30", "end_time": "15:30", "contact_method": "email" }
+    ]
+  },
+
+  "education": {
+    "highest_level": "Doctorate",
+    "schools": [
+      {
+        "institution": "University of Washington",
+        "degree": "Ph.D.",
+        "major": "Biostatistics",
+        "minor": "Statistics",
+        "gpa": "3.8",
+        "city": "Seattle",
+        "state_province": "Washington",
+        "country": "United States",
+        "start_date": "2015-09",
+        "end_date": "2021-06",
+        "graduation_date": "2021-06",
+        "currently_enrolled": false,
+        "abd_status": false,
+        "abd_details": ""
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Responsible Conduct of Research",
+        "issuer": "University of Washington",
+        "issue_date": "2020-04",
+        "expiration_date": "",
+        "credential_id": "",
+        "credential_url": ""
+      }
+    ]
+  },
+
+  "referral_and_relationships": {
+    "referred_by_employee": false,
+    "referral_details": { "employee_name": "", "employee_id": "", "relationship": "", "department": "" },
+    "nepotism_disclosures": []
+  },
+
+  "religion": {
+    "value": "",
+    "prefer_not_to_say": true,
+    "religious_accommodation_requested": false,
+    "accommodation_details": ""
+  },
+
+  "employment_basics": {
+    "job_title_applied_for": "Postdoctoral Fellow in Statistics",
+    "job_id_or_requisition": "",
+    "employment_type_preference": ["full_time"],
+    "work_location_preference": ["onsite", "hybrid"],
+    "availability_to_start": "2026-09-01",
+    "salary_expectation": { "currency": "USD", "amount_min": 72000, "amount_max": 88000, "period": "annual" },
+    "willing_to_relocate": true,
+    "willing_to_travel_percent": 5
+  },
+
+  "work_history": [
+    {
+      "company": "Massachusetts Institute of Technology",
+      "job_title": "Postdoctoral Associate in Statistics",
+      "employment_type": "full_time",
+      "start_date": "2023-09",
+      "end_date": "",
+      "currently_working_here": true,
+      "city": "Cambridge",
+      "state_province": "Massachusetts",
+      "country": "United States",
+      "supervisor_name": "Dr. Vivian Chen",
+      "supervisor_contact": "617-555-0154",
+      "may_contact_supervisor": true,
+      "responsibilities": "Develop causal inference methods for adaptive clinical trials; teach graduate statistical computing workshops; mentor undergraduate research assistants.",
+      "achievements": "Led a multi-institution preprint on robust transportability estimators for pragmatic trials.",
+      "reason_for_leaving": "Seeking an independent faculty or longer-term research appointment."
+    },
+    {
+      "company": "Fred Hutchinson Cancer Center",
+      "job_title": "Research Scientist I",
+      "employment_type": "full_time",
+      "start_date": "2021-07",
+      "end_date": "2023-08",
+      "currently_working_here": false,
+      "city": "Seattle",
+      "state_province": "Washington",
+      "country": "United States",
+      "supervisor_name": "Dr. Miguel Herrera",
+      "supervisor_contact": "",
+      "may_contact_supervisor": true,
+      "responsibilities": "Built simulation studies for oncology trial monitoring and supported grant-funded collaborative biostatistics projects.",
+      "achievements": "Coauthored two applied papers in clinical trial methodology.",
+      "reason_for_leaving": "Accepted postdoctoral appointment at MIT."
+    }
+  ],
+
+  "references": [
+    {
+      "name": "Dr. Vivian Chen",
+      "relationship": "Postdoctoral supervisor",
+      "company": "Massachusetts Institute of Technology",
+      "title": "Associate Professor of Statistics",
+      "email": "vivian.chen.test@example.edu",
+      "phone": "6175550154",
+      "years_known": 3
+    }
+  ],
+
+  "documents": {
+    "resume_path_or_url": "applicants/cv.pdf",
+    "cover_letter_path_or_url": "applicants/cover_letter.pdf",
+    "research_statement_path": "applicants/teaching_statement.pdf",
+    "statement_of_research_path": "applicants/teaching_statement.pdf",
+    "teaching_statement_path": "applicants/teaching_statement.pdf",
+    "teaching_evaluations_path": "applicants/teaching_evaluations.pdf",
+    "syllabus_path": "applicants/syllabus.pdf",
+    "references_path": "applicants/references.pdf",
+    "additional_attachment_path": "",
+    "portfolio_url": "https://example.com/anika-rao-biostatistics",
+    "linkedin_url": "https://www.linkedin.com/in/anika-rao-test",
+    "github_url": "https://github.com/arao-test",
+    "other_links": []
+  },
+
+  "compliance_and_consent": {
+    "background_check_consent": true,
+    "drug_test_consent": true,
+    "data_processing_consent": true,
+    "e_signature": { "legal_name": "Anika Meera Rao", "signed_at": "", "ip_address": "" },
+    "attestation": "I certify that the information provided is true and complete."
+  },
+
+  "answers": {
+    "county": "Middlesex",
+    "region": "Boston/Cambridge",
+    "related_to_uthealth_employee": false,
+    "previously_employed_by_uthealth": false,
+    "previously_employed_by_nyulangone": true,
+    "previously_employed_by_nyulangone_details": "Research collaboration appointment, Biostatistics Core, June 2022 to August 2022.",
+    "nyulangone_employee_id": "N/A",
+    "previously_employed_by_umn": "No",
+    "previously_employed_by_ua": "No",
+
+    "gender": "Non-Binary",
+    "is_hispanic_or_latino": "No",
+    "ethnicity": "Asian",
+    "race_ethnicity": "Asian",
+    "protected_veteran": "Not an Other Protected Veteran",
+    "is_veteran": false,
+    "veteran_with_disability": false,
+    "surviving_spouse_of_veteran": false,
+    "orphan_of_veteran": false,
+    "former_foster_child": false,
+
+    "desired_salary": "82000",
+    "highest_education": "Post-Doctorate",
+    "degree": "Ph.D. - Doctor of Philosophy",
+    "degree_date_earned": "June 11, 2021",
+    "degree_year_acquired": "2021",
+    "degree_year_started": "2015",
+    "major": "Biostatistics",
+    "school": "University of Washington",
+    "license_cert": "N/A",
+
+    "authorized_to_work_us": true,
+    "requires_visa_sponsorship": true,
+    "authorized_to_work_us_label": "Yes - I am currently authorized to work in the United States",
+    "has_conflict_of_interest": false,
+    "referral_source": "HERC - Higher Education Recruitment Consortium",
+    "specific_referral_source": "HERC statistics faculty mailing list",
+
+    "current_title": "Postdoctoral Associate in Statistics",
+    "current_organization": "Massachusetts Institute of Technology",
+
+    "interfolio_state": "MA",
+    "interfolio_position_status": "Post-Doc",
+    "interfolio_referral_source": "My Colleague, Peer, or Friend",
+    "interfolio_discipline": "STEM (Science, Technology, Engineering, Math)",
+
+    "ua_title": "Dr",
+    "ua_employment_status": "I have never been employed by The University of Alabama",
+    "ua_has_family_employee": "No",
+    "ua_family_member_details": "",
+    "ua_education_type": "College / University Graduate",
+    "ua_degree_type": "PhD",
+    "ua_education_status": "Completed",
+    "ua_degree_year_started": "2015",
+    "ua_employer_status": "Currently employed",
+    "ua_start_month": "Sep",
+    "ua_start_year": "2023",
+    "ua_start_day": "1",
+    "ua_company_name": "Massachusetts Institute of Technology",
+    "ua_manager_name": "Dr. Vivian Chen",
+    "ua_responsibilities": "Develop causal inference methods for adaptive clinical trials, teach statistical computing workshops, and mentor student researchers.",
+    "ua_end_month": "",
+    "ua_end_year": "",
+    "ua_reason_for_leaving": "",
+    "ua_add_additional_positions": "0",
+    "ua_contact_employers": "ask",
+    "ua_felony_conviction": "No",
+    "ua_felony_description": "",
+    "ua_citizenship_status": "non_resident",
+    "ua_referral_source": "HERC",
+    "ua_certifications": "N/A",
+    "ua_current_dept_and_title": "",
+
+    "cuhk_applied_division": "Statistics",
+    "cuhk_applied_class_of_appointment": "Research",
+    "cuhk_applied_position": "Postdoctoral Fellow",
+    "cuhk_chinese_name": "",
+    "cuhk_id_type": "Other",
+    "cuhk_id_type_other": "Passport",
+    "cuhk_id_number": "N/A",
+    "cuhk_research_interest": "Causal inference, adaptive clinical trials, transportability, and robust biostatistical methods",
+    "cuhk_emergency_contact_name": "Meera Rao",
+    "cuhk_emergency_contact_relationship": "Parent",
+    "cuhk_emergency_contact_number": "6175550173",
+    "cuhk_emergency_contact_address": "Cambridge, MA",
+    "cuhk_degree": "Doctor of Philosophy (Ph.D.)",
+    "cuhk_type_of_employment": "Full-Time",
+    "cuhk_publication_type": "Journal Article",
+    "cuhk_publication_work_type": "Research Article",
+    "cuhk_publication_title": "Robust transportability estimation for adaptive pragmatic trials",
+    "cuhk_publication_authors": "Anika M. Rao; Vivian Chen; Miguel Herrera",
+    "cuhk_publication_venue": "Biometrics",
+    "cuhk_publication_status": "Accepted",
+    "cuhk_publication_description": "Develops transportability estimators for adaptive pragmatic trials with heterogeneous site participation."
+  }
+}

@@ -11,6 +11,7 @@
  * - reports hidden file inputs and hidden-but-present controls
  * - clicks radios/checkboxes and likely modal buttons to detect new fields
  * - tries to restore the page state after each probe
+ * - appends a machine-readable JSON block for draft-playbook generators
  *
  * Safety knobs live in CONFIG below. The defaults avoid submit/navigation
  * buttons, but they do click visible radios, checkboxes, and likely "Add/Search"
@@ -30,7 +31,8 @@
     maxConditionalTriggers: 80,
     maxModalButtonTriggers: 30,
     maxHiddenControls: 80,
-    includeHiddenControls: true
+    includeHiddenControls: true,
+    includeMachineJson: true
   };
 
   const lines = [];
@@ -99,6 +101,17 @@
     ".cdk-overlay-pane"
   ].join(",");
 
+  const PAGE_ORDER_SELECTOR = [
+    CONTROL_SELECTOR,
+    "button",
+    "input[type=button]",
+    "input[type=submit]",
+    "input[type=reset]",
+    "a",
+    "[role=button]",
+    ".link-type"
+  ].join(",");
+
   const REVEAL_WORDS = /(?:\b(yes|other|add|attach|upload|choose|browse|search|lookup|select|new|more|edit|details?|explain|specify|current|previous|former|relative|family|felony|visa|sponsor|employee|reference|education|degree|employer|position)\b|是|否|其他|添加|上传|选择|浏览|搜索|查找|新增|更多|编辑|详情|说明|当前|以前|曾经|亲属|家属|家庭|签证|资助|雇员|员工|推荐|教育|学位|雇主|职位|岗位|附件|简历|证明|文件)/i;
   const NAV_WORDS = /(?:\b(next|continue|submit|save|apply|register|login|log in|sign in|sign up|create account|finish|done|cancel|delete|remove|close|back|previous|home|logout|sign out|send verification|email)\b|下一步|继续|提交|保存|申请|注册|登录|登入|完成|取消|删除|移除|关闭|返回|上一步|首页|退出|发送|邮箱|邮件)/i;
 
@@ -155,8 +168,38 @@
     return Boolean(el.disabled || attr(el, "aria-disabled") === "true");
   }
 
+  function requiredInfo(el) {
+    const sources = [];
+    const label = labelFor(el);
+    if (el.required) sources.push("html required");
+    if (attr(el, "aria-required") === "true") sources.push("aria-required");
+    if (/\*|\brequired\b|\(required\)/i.test(label)) sources.push("label");
+    const formItem = el.closest && el.closest([
+      ".required",
+      ".is-required",
+      ".form-group",
+      ".form-field",
+      ".field",
+      ".question",
+      ".ant-form-item",
+      ".el-form-item",
+      ".mat-form-field",
+      ".mat-mdc-form-field",
+      ".MuiFormControl-root",
+      "tr",
+      "li"
+    ].join(","));
+    if (formItem) {
+      const cls = String(formItem.className || "");
+      if (/\b(required|is-required)\b/i.test(cls)) sources.push("container class");
+      const labelNode = formItem.querySelector("label,.label,.control-label,.ant-form-item-label,.el-form-item__label,.mat-label,.MuiFormLabel-root");
+      if (labelNode && /\*|\brequired\b|\(required\)/i.test(textOf(labelNode))) sources.push("container label");
+    }
+    return { required: sources.length > 0, sources: unique(sources) };
+  }
+
   function requiredMark(el) {
-    return el.required || attr(el, "aria-required") === "true" ? " required" : "";
+    return requiredInfo(el).required ? " required" : "";
   }
 
   function unique(arr) {
@@ -181,8 +224,8 @@
     const tag = el.tagName ? el.tagName.toLowerCase() : "*";
     const notes = [];
 
-    function result(selector, extraNotes = []) {
-      return { selector, notes: notes.concat(extraNotes).filter(Boolean) };
+    function result(selector, extraNotes = [], strategy = "") {
+      return { selector, notes: notes.concat(extraNotes).filter(Boolean), strategy };
     }
 
     if (el.id) {
@@ -190,44 +233,44 @@
       const idSelector = `#${cssEscape(id)}`;
       const uniqueId = countInDoc(doc, idSelector) === 1;
       const volatile = looksVolatile(id);
-      if (uniqueId && !volatile) return result(idSelector);
+      if (uniqueId && !volatile) return result(idSelector, [], "id");
 
       const suffix = stableSuffix(id);
       if (suffix) {
         const suffixSelector = `[id$="${attrEscape(suffix)}"]`;
         const count = countInDoc(doc, suffixSelector);
         if (count === 1) {
-          return result(suffixSelector, [`id looked volatile: ${id}`]);
+          return result(suffixSelector, [`id looked volatile: ${id}`], "id suffix");
         }
         if (count > 1) notes.push(`id looked volatile and suffix matched ${count}: ${id}`);
       }
-      if (uniqueId) return result(idSelector, [`id may be volatile: ${id}`]);
+      if (uniqueId) return result(idSelector, [`id may be volatile: ${id}`], "id");
     }
 
     for (const name of ["data-testid", "data-test", "data-qa", "data-cy", "data-automation-id"]) {
       const value = attr(el, name);
       if (!value) continue;
       const selector = `[${name}="${attrEscape(value)}"]`;
-      if (countInDoc(doc, selector) === 1) return result(selector);
+      if (countInDoc(doc, selector) === 1) return result(selector, [], name);
     }
 
     if (el.name) {
       const nameSelector = `[name="${attrEscape(el.name)}"]`;
       const tagNameSelector = `${tag}[name="${attrEscape(el.name)}"]`;
-      if (countInDoc(doc, nameSelector) === 1) return result(nameSelector);
-      if (countInDoc(doc, tagNameSelector) === 1) return result(tagNameSelector);
+      if (countInDoc(doc, nameSelector) === 1) return result(nameSelector, [], "name");
+      if (countInDoc(doc, tagNameSelector) === 1) return result(tagNameSelector, [], "tag+name");
       notes.push(`name is shared by ${countInDoc(doc, nameSelector)} elements`);
     }
 
     const aria = attr(el, "aria-label");
     if (aria) {
       const selector = `[aria-label="${attrEscape(aria)}"]`;
-      if (countInDoc(doc, selector) === 1) return result(selector);
+      if (countInDoc(doc, selector) === 1) return result(selector, [], "aria-label");
     }
 
     if (el.placeholder) {
       const selector = `${tag}[placeholder="${attrEscape(el.placeholder)}"]`;
-      if (countInDoc(doc, selector) === 1) return result(selector);
+      if (countInDoc(doc, selector) === 1) return result(selector, [], "placeholder");
     }
 
     const type = attr(el, "type");
@@ -236,14 +279,14 @@
       if (label && label !== "(unlabeled)") {
         const lit = xpathLiteral(label);
         const xpath = `xpath=//label[contains(normalize-space(.), ${lit})]/following::input[@type=${xpathLiteral(type)}][1]`;
-        return result(xpath, notes.concat(["XPath from nearby label"]));
+        return result(xpath, notes.concat(["XPath from nearby label"]), "label xpath");
       }
     }
 
     const text = truncate(textOf(el), 80);
     if ((tag === "button" || attr(el, "role") === "button" || tag === "a") && text) {
       const lit = xpathLiteral(text);
-      return result(`xpath=(//*[self::button or self::a or @role='button'][contains(normalize-space(.), ${lit})])[1]`);
+      return result(`xpath=(//*[self::button or self::a or @role='button'][contains(normalize-space(.), ${lit})])[1]`, [], "button text xpath");
     }
 
     const classes = Array.from(el.classList || [])
@@ -253,21 +296,31 @@
     if (classes.length) {
       for (let i = classes.length; i >= 1; i -= 1) {
         const clsSelector = `${tag}.${classes.slice(0, i).map(cssEscape).join(".")}`;
-        if (countInDoc(doc, clsSelector) === 1) return result(clsSelector);
+        if (countInDoc(doc, clsSelector) === 1) return result(clsSelector, [], "class");
       }
     }
 
     const label = labelFor(el);
     if (label && label !== "(unlabeled)") {
-      return result(`xpath=(//*[contains(normalize-space(.), ${xpathLiteral(label)})]//${tag} | //*[contains(normalize-space(.), ${xpathLiteral(label)})]/following::${tag}[1])[1]`, notes.concat(["fallback XPath from visible label"]));
+      return result(`xpath=(//*[contains(normalize-space(.), ${xpathLiteral(label)})]//${tag} | //*[contains(normalize-space(.), ${xpathLiteral(label)})]/following::${tag}[1])[1]`, notes.concat(["fallback XPath from visible label"]), "fallback label xpath");
     }
 
-    return result("(no stable selector)", notes);
+    return result("(no stable selector)", notes, "none");
   }
 
   function stableSelector(el) {
     const info = selectorInfo(el);
     return info.notes.length ? `${info.selector}  note: ${info.notes.join("; ")}` : info.selector;
+  }
+
+  function selectorRecord(el) {
+    const info = selectorInfo(el);
+    return {
+      selector: info.selector,
+      strategy: info.strategy || "",
+      notes: info.notes,
+      stable: info.selector !== "(no stable selector)"
+    };
   }
 
   function looksVolatile(value) {
@@ -417,6 +470,21 @@
     return out;
   }
 
+  function selectOptionRecords(select) {
+    return Array.from(select.options || []).map(option => {
+      const text = option.text || attr(option, "label") || option.value || textOf(option);
+      const placeholder = /^(--\s*)?(select|choose|please select)\s*(--)?$/i.test(text || "");
+      return {
+        text: truncate(text || "", 160),
+        value: option.value || "",
+        label: attr(option, "label"),
+        disabled: Boolean(option.disabled),
+        selected: Boolean(option.selected),
+        placeholder
+      };
+    }).filter(option => option.text || option.value);
+  }
+
   function datalistOptions(input) {
     const id = attr(input, "list");
     if (!id) return [];
@@ -425,11 +493,134 @@
     return Array.from(list.querySelectorAll("option")).map(o => attr(o, "label") || o.value || textOf(o));
   }
 
+  function datalistOptionRecords(input) {
+    const id = attr(input, "list");
+    if (!id) return [];
+    const list = ownDoc(input).getElementById(id);
+    if (!list) return [];
+    return Array.from(list.querySelectorAll("option")).map(option => ({
+      text: truncate(attr(option, "label") || option.value || textOf(option), 160),
+      value: option.value || "",
+      label: attr(option, "label")
+    })).filter(option => option.text || option.value);
+  }
+
+  function formRecord(el, frames) {
+    const form = el.closest && el.closest("form");
+    if (!form) return null;
+    const forms = Array.from(ownDoc(el).querySelectorAll("form"));
+    const info = selectorRecord(form);
+    return {
+      index: forms.indexOf(form) + 1,
+      id: form.id || "",
+      name: attr(form, "name"),
+      selector: info.selector,
+      selector_notes: info.notes,
+      frame: framePathForDoc(ownDoc(form), frames)
+    };
+  }
+
+  function sectionFor(el) {
+    const fieldset = el.closest && el.closest("fieldset");
+    if (fieldset) {
+      const legend = fieldset.querySelector("legend");
+      if (legend && textOf(legend)) return truncate(textOf(legend), 220);
+    }
+
+    const labelledContainer = el.closest && el.closest([
+      "section",
+      "fieldset",
+      ".section",
+      ".panel",
+      ".card",
+      ".form-section",
+      ".wizard-step",
+      ".step",
+      ".ant-card",
+      ".el-card",
+      ".MuiPaper-root"
+    ].join(","));
+    if (labelledContainer) {
+      const heading = labelledContainer.querySelector("h1,h2,h3,h4,h5,h6,legend,[role=heading]");
+      if (heading && textOf(heading)) return truncate(textOf(heading), 220);
+    }
+
+    let prev = el.previousElementSibling;
+    for (let i = 0; prev && i < 8; i += 1, prev = prev.previousElementSibling) {
+      if (/^H[1-6]$/.test(prev.tagName || "") && textOf(prev)) return truncate(textOf(prev), 220);
+    }
+    return "";
+  }
+
+  function actionHintFor(el) {
+    const tag = el.tagName ? el.tagName.toLowerCase() : "";
+    const type = (attr(el, "type") || "").toLowerCase();
+    const role = (attr(el, "role") || "").toLowerCase();
+    if (tag === "select") return "select";
+    if (tag === "textarea" || attr(el, "contenteditable") === "true") return "fill";
+    if (tag === "input" && type === "file") return "upload";
+    if (tag === "input" && type === "radio") return "check";
+    if (tag === "input" && type === "checkbox") return "check";
+    if (tag === "input" && attr(el, "list")) return "press";
+    if (role === "combobox" || (el.matches && el.matches(CUSTOM_WIDGET_SELECTOR))) return "press";
+    if (tag === "input") return "fill";
+    if (tag === "button" || tag === "a" || role === "button") return "click";
+    return "inspect";
+  }
+
+  function elementRecord(el, frames, extra = {}) {
+    const tag = el.tagName ? el.tagName.toLowerCase() : "";
+    const selector = selectorRecord(el);
+    const required = requiredInfo(el);
+    const frame = framePathForDoc(ownDoc(el), frames);
+    const type = attr(el, "type") || attr(el, "role") || "";
+    const record = {
+      label: truncate(labelFor(el), 240),
+      tag,
+      type,
+      role: attr(el, "role"),
+      name: attr(el, "name"),
+      id: el.id || "",
+      placeholder: el.placeholder || "",
+      autocomplete: attr(el, "autocomplete"),
+      title: attr(el, "title"),
+      aria_label: attr(el, "aria-label"),
+      aria_describedby: attr(el, "aria-describedby"),
+      required: required.required,
+      required_sources: required.sources,
+      disabled: isDisabled(el),
+      visible: isVisible(el),
+      hidden: !isVisible(el),
+      checked: tag === "input" && ["checkbox", "radio"].includes((attr(el, "type") || "").toLowerCase()) ? Boolean(el.checked) : undefined,
+      multiple: Boolean(el.multiple),
+      accept: attr(el, "accept"),
+      selector: selector.selector,
+      selector_strategy: selector.strategy,
+      selector_notes: selector.notes,
+      selector_stable: selector.stable,
+      frame,
+      document_order: documentOrder(el),
+      section: sectionFor(el),
+      form: formRecord(el, frames),
+      action_hint: actionHintFor(el)
+    };
+    Object.keys(record).forEach(key => record[key] === undefined && delete record[key]);
+    return Object.assign(record, extra);
+  }
+
   function elementKey(el) {
     const info = selectorInfo(el);
     if (info.selector !== "(no stable selector)") return `${framePathForDoc(ownDoc(el), cachedFrames)}::${info.selector}`;
     const rect = el.getBoundingClientRect();
     return `${framePathForDoc(ownDoc(el), cachedFrames)}::${el.tagName}:${attr(el, "type")}:${labelFor(el)}:${Math.round(rect.top)}:${Math.round(rect.left)}`;
+  }
+
+  function documentOrder(el) {
+    try {
+      return Array.from(ownDoc(el).querySelectorAll(PAGE_ORDER_SELECTOR)).indexOf(el);
+    } catch (_err) {
+      return -1;
+    }
   }
 
   function collectFrames() {
@@ -821,6 +1012,41 @@
 
   const collected = collectFrames();
   let cachedFrames = collected.frames;
+  const report = {
+    schema_version: 1,
+    tool: "form-extractor",
+    url: location.href,
+    title: document.title,
+    captured_at: new Date().toISOString(),
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      device_pixel_ratio: window.devicePixelRatio || 1
+    },
+    config: Object.assign({}, CONFIG),
+    frames: {
+      read: cachedFrames.map(frame => frame.path),
+      blocked: collected.blocked
+    },
+    buttons: [],
+    controls: {
+      text_inputs: [],
+      native_selects: [],
+      datalist_inputs: [],
+      file_uploads: [],
+      radio_groups: [],
+      checkboxes: [],
+      custom_widgets: [],
+      hidden_controls: []
+    },
+    findings: {
+      modal_fields: [],
+      conditional_fields: [],
+      visible_dialogs: []
+    },
+    warnings: [],
+    authoring_notes: []
+  };
 
   log("");
   log("FORM EXTRACTOR - paste output to Codex");
@@ -854,6 +1080,14 @@
       const hint = isLikelyModalButton(button) ? "  likely reveal/modal trigger" : "";
       const frame = framePathForDoc(ownDoc(button), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
+      report.buttons.push(elementRecord(button, cachedFrames, {
+        text,
+        value: attr(button, "value"),
+        href: attr(button, "href"),
+        likely_modal_trigger: isLikelyModalButton(button),
+        likely_navigation_or_submit: NAV_WORDS.test(text) || /submit/i.test(type),
+        recommended: /submit|finish|delete|remove/i.test(text) ? "review before adding click step" : "click"
+      }));
       log(`  [${i + 1}] "${text}"${type ? ` type=${type}` : ""}${hint}  selector: ${stableSelector(button)}${framePart}`);
     });
     log("");
@@ -866,6 +1100,7 @@
   ].join(",")).filter(isVisible).filter(el => attr(el, "role") !== "combobox");
   if (textInputs.length) {
     section("-- TEXT INPUTS / TEXTAREAS ------------------------------------------");
+    report.controls.text_inputs = textInputs.map(el => elementRecord(el, cachedFrames));
     logControlList(textInputs, cachedFrames);
     log("");
   }
@@ -873,6 +1108,9 @@
   const selects = queryAllDocs(cachedFrames, "select").filter(isVisible);
   if (selects.length) {
     section("-- NATIVE DROPDOWNS (<select>) ---------------------------------------");
+    report.controls.native_selects = selects.map(select => elementRecord(select, cachedFrames, {
+      options: selectOptionRecords(select)
+    }));
     logControlList(selects, cachedFrames);
     log("");
   }
@@ -880,6 +1118,10 @@
   const datalistInputs = queryAllDocs(cachedFrames, "input[list]").filter(isVisible);
   if (datalistInputs.length) {
     section("-- DATALIST INPUTS ----------------------------------------------------");
+    report.controls.datalist_inputs = datalistInputs.map(input => elementRecord(input, cachedFrames, {
+      datalist_id: attr(input, "list"),
+      options: datalistOptionRecords(input)
+    }));
     logControlList(datalistInputs, cachedFrames);
     log("");
   }
@@ -893,6 +1135,7 @@
       const multiple = file.multiple ? " multiple" : "";
       const frame = framePathForDoc(ownDoc(file), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
+      report.controls.file_uploads.push(elementRecord(file, cachedFrames));
       log(`  [${i + 1}] label="${truncate(labelFor(file))}"${hidden}${multiple}${accept ? ` accept=${accept}` : ""}  selector: ${stableSelector(file)}${framePart}`);
     });
     log("");
@@ -908,6 +1151,19 @@
       const frame = framePathForDoc(ownDoc(first), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
       const scope = first.name ? `input[type=radio][name="${attrEscape(first.name)}"]` : stableSelector(first);
+      report.controls.radio_groups.push({
+        question: truncate(question || "", 240),
+        name: first.name || "",
+        frame,
+        scope,
+        section: sectionFor(first),
+        required: group.some(radio => requiredInfo(radio).required),
+        action_hint: "pick",
+        options: group.map(radio => elementRecord(radio, cachedFrames, {
+          option_label: truncate(labelFor(radio), 180),
+          option_value: attr(radio, "value")
+        }))
+      });
       log(`  [${i + 1}] group name="${first.name || "(unnamed)"}"${question ? `  question="${truncate(question)}"` : ""}${framePart}`);
       log(`       scope: ${scope}`);
       log(`       options: ${formatOptions(options)}`);
@@ -921,6 +1177,9 @@
     checkboxes.forEach((checkbox, i) => {
       const frame = framePathForDoc(ownDoc(checkbox), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
+      report.controls.checkboxes.push(elementRecord(checkbox, cachedFrames, {
+        value: attr(checkbox, "value")
+      }));
       log(`  [${i + 1}] label="${truncate(labelFor(checkbox))}"${checkbox.checked ? " checked" : ""}${requiredMark(checkbox)}  selector: ${stableSelector(checkbox)}${framePart}`);
     });
     log("");
@@ -947,6 +1206,12 @@
       cachedFrames = collectFrames().frames;
       const frame = framePathForDoc(ownDoc(widget), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
+      report.controls.custom_widgets.push(elementRecord(widget, cachedFrames, {
+        options: probe.options.map(text => ({ text: truncate(text, 160) })),
+        option_source: probe.source || "",
+        action_hint: "press",
+        recommended: "press with value '<option text>, Enter' or '<option text>, Tab'"
+      }));
       log(`  [${i + 1}] label="${truncate(labelFor(widget))}"  role=${attr(widget, "role") || "(none)"}  selector: ${stableSelector(widget)}${framePart}`);
       const opts = formatOptions(probe.options);
       if (opts) log(`       options (${probe.source || "found"}): ${opts}`);
@@ -964,6 +1229,7 @@
     if (hiddenControls.length) {
       section("-- HIDDEN / COLLAPSED CONTROLS PRESENT IN DOM -----------------------");
       log("  These may be conditional fields, inactive wizard pages, or backing inputs for custom widgets.");
+      report.controls.hidden_controls = hiddenControls.map(el => elementRecord(el, cachedFrames));
       hiddenControls.forEach((el, i) => {
         const summary = controlSummary(el, cachedFrames).split("\n");
         log(`  [${i + 1}] ${summary[0]}`);
@@ -978,6 +1244,12 @@
   if (modalFindings.length) {
     section("-- MODAL / POPUP FIELDS DISCOVERED BY CLICKING SAFE TRIGGERS ---------");
     modalFindings.forEach((finding, i) => {
+      report.findings.modal_fields.push({
+        trigger: finding.trigger,
+        selector: finding.selector,
+        dialog_opened: Boolean(finding.dialogOpened),
+        controls: finding.controls.map(control => elementRecord(control, cachedFrames))
+      });
       log(`  [${i + 1}] trigger ${finding.trigger}  selector: ${finding.selector}${finding.dialogOpened ? "  dialog opened" : ""}`);
       if (finding.controls.length) {
         finding.controls.forEach((control, j) => log(`       [${j + 1}] ${controlSummary(control, cachedFrames).replace(/\n/g, "\n           ")}`));
@@ -993,6 +1265,11 @@
   if (conditionalFindings.length) {
     section("-- CONDITIONAL FIELDS DISCOVERED BY PROBING OPTIONS ------------------");
     conditionalFindings.forEach((finding, i) => {
+      report.findings.conditional_fields.push({
+        trigger: finding.trigger,
+        selector: finding.selector,
+        controls: finding.controls.map(control => elementRecord(control, cachedFrames))
+      });
       log(`  [${i + 1}] after ${finding.trigger}  selector: ${finding.selector}`);
       finding.controls.forEach((control, j) => log(`       [${j + 1}] ${controlSummary(control, cachedFrames).replace(/\n/g, "\n           ")}`));
     });
@@ -1010,27 +1287,59 @@
     visibleDialogs.forEach((dialog, i) => {
       const frame = framePathForDoc(ownDoc(dialog), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
+      report.findings.visible_dialogs.push(elementRecord(dialog, cachedFrames, {
+        text: truncate(textOf(dialog), 500)
+      }));
       log(`  [${i + 1}] "${truncate(textOf(dialog), 220)}"  selector: ${stableSelector(dialog)}${framePart}`);
     });
     log("");
   }
 
+  report.warnings = unique(warnings);
   if (warnings.length) {
     section("-- WARNINGS ----------------------------------------------------------");
     unique(warnings).forEach((item, i) => log(`  [${i + 1}] ${item}`));
     log("");
   }
 
+  report.authoring_notes = [
+    "Native <select> fields can use select: with exact option text.",
+    "Custom dropdowns usually need press: with the selector, option text, then Enter/Tab.",
+    "File inputs can use upload: directly, even when hidden.",
+    "Radio/checkbox groups include a scope candidate for pick: steps.",
+    "Rerun extractor after manually picking each Yes/Other/Add conditional path if needed.",
+    "Never enable final submit until a human has reviewed the filled application."
+  ];
   section("-- PLAYBOOK AUTHORING NOTES ------------------------------------------");
-  log("  - Native <select> fields can use `select:` with the exact option text above.");
-  log("  - Custom dropdowns usually need `press:`: focus selector, type option text, then Enter/Tab.");
-  log("  - File inputs can use `upload:` directly, even when this report says hidden.");
-  log("  - Radio/checkbox groups include a `scope:` candidate for `pick:` steps.");
-  log("  - For conditionals, rerun this extractor after manually picking each Yes/Other/Add path if needed.");
-  log("  - Never enable a final submit click until a human has reviewed the filled application.");
+  report.authoring_notes.forEach(note => log(`  - ${note}`));
   log("");
 
+  report.frames.read = cachedFrames.map(frame => frame.path);
+  report.summary = {
+    buttons: report.buttons.length,
+    text_inputs: report.controls.text_inputs.length,
+    native_selects: report.controls.native_selects.length,
+    datalist_inputs: report.controls.datalist_inputs.length,
+    file_uploads: report.controls.file_uploads.length,
+    radio_groups: report.controls.radio_groups.length,
+    checkboxes: report.controls.checkboxes.length,
+    custom_widgets: report.controls.custom_widgets.length,
+    hidden_controls: report.controls.hidden_controls.length,
+    modal_findings: report.findings.modal_fields.length,
+    conditional_findings: report.findings.conditional_fields.length,
+    visible_dialogs: report.findings.visible_dialogs.length
+  };
+
+  if (CONFIG.includeMachineJson) {
+    section("-- MACHINE-READABLE JSON --------------------------------------------");
+    log("PLAYBOOK_EXTRACT_JSON_START");
+    log(JSON.stringify(report, null, 2));
+    log("PLAYBOOK_EXTRACT_JSON_END");
+    log("");
+  }
+
   const output = lines.join("\n");
+  window.__PLAYBOOK_EXTRACTOR_RESULT__ = report;
   console.log(output);
 
   if (navigator.clipboard && navigator.clipboard.writeText) {

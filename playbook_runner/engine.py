@@ -67,6 +67,7 @@ class Engine:
         self.page = None
         self._started_at = time.time()  # only await_email_link mail newer than this counts
         self._return_page = None
+        self._recent_steps: list[str] = []
 
     # -- lifecycle ---------------------------------------------------------
     def __enter__(self) -> "Engine":
@@ -102,21 +103,21 @@ class Engine:
     # -- run loop ----------------------------------------------------------
     def run(self, playbook: Playbook) -> None:
         if playbook.url and not any(s.kind == "open" for s in playbook.steps):
-            self.log(f"→ open (from playbook url) {playbook.url}")
+            self._step_log(f"→ open (from playbook url) {playbook.url}")
             self.page.goto(playbook.url)
             self._settle()
 
         for n, step in enumerate(playbook.steps, start=1):
             self._ensure_live_page()
             if step.when is not None and not conditions.evaluate(step.when, self.context):
-                self.log(f"  · skip [{n}] {step.describe()}  (when: {step.when})")
+                self._step_log(f"  · skip [{n}] {step.describe()}  (when: {step.when})")
                 continue
-            self.log(f"→ [{n}] {step.describe()}")
+            self._step_log(f"→ [{n}] {step.describe()}")
             try:
                 self._execute(step)
             except Exception as exc:  # noqa: BLE001 - we re-raise after handling
                 if step.optional:
-                    self.log(f"  ! optional step failed, continuing: {exc}")
+                    self._step_log(f"  ! optional step failed, continuing: {exc}")
                     continue
                 self._on_error(n, step)
                 raise StepError(step, f"step [{n}] {step.describe()} failed: {exc}") from exc
@@ -847,6 +848,12 @@ class Engine:
         ])
 
     # -- misc --------------------------------------------------------------
+    def _step_log(self, message: str) -> None:
+        """Log a step event and keep a compact tail for failure artifacts."""
+        self._recent_steps.append(message)
+        self._recent_steps = self._recent_steps[-25:]
+        self.log(message)
+
     def _settle(self) -> None:
         try:
             self.page.wait_for_load_state("networkidle", timeout=self.default_timeout)
@@ -858,12 +865,61 @@ class Engine:
             return
         try:
             out = Path(self.screenshot_dir)
-            out.mkdir(parents=True, exist_ok=True)
-            shot = out / f"error-step-{n}.png"
+            failure_dir = out / f"error-step-{n:03d}"
+            failure_dir.mkdir(parents=True, exist_ok=True)
+
+            shot = failure_dir / "screenshot.png"
             self.page.screenshot(path=str(shot), full_page=True)
-            self.log(f"  · saved screenshot {shot}")
+
+            html = failure_dir / "page.html"
+            try:
+                html.write_text(self.page.content())
+            except Exception as exc:  # noqa: BLE001
+                html.write_text(f"Could not capture page HTML: {exc}\n")
+
+            (failure_dir / "failure.txt").write_text(self._failure_report(n, step, shot, html))
+            self.log(f"  · saved failure artifacts {failure_dir}")
         except Exception as exc:  # noqa: BLE001
-            self.log(f"  · could not save screenshot: {exc}")
+            self.log(f"  · could not save failure artifacts: {exc}")
+
+    def _failure_report(self, n: int, step: Step, shot: Path, html: Path) -> str:
+        try:
+            url = self.page.url
+        except Exception:
+            url = "(unavailable)"
+        try:
+            title = self.page.title()
+        except Exception:
+            title = "(unavailable)"
+        lines = [
+            f"failed_step: {n}",
+            f"action: {step.kind}",
+            f"description: {step.describe()}",
+            f"url: {url}",
+            f"title: {title}",
+            f"screenshot: {shot.name}",
+            f"html: {html.name}",
+            "",
+            "step:",
+            f"  target: {step.target!r}",
+            f"  value: {_redact_for_artifact(step.value)!r}",
+            f"  selector: {step.selector!r}",
+            f"  group: {step.group!r}",
+            f"  scope: {step.scope!r}",
+            f"  role: {step.role!r}",
+            f"  exact: {step.exact}",
+            f"  optional: {step.optional}",
+            f"  wait_after: {step.wait_after!r}",
+            f"  timeout: {step.timeout!r}",
+        ]
+        if step.when:
+            lines.append(f"  when: {step.when!r}")
+        if step.kind == "pick":
+            lines.extend(["  pick:", f"    {step.pick!r}"])
+        if step.config:
+            lines.extend(["  config:", f"    {_redact_for_artifact(step.config)!r}"])
+        lines.extend(["", "recent_steps:", *self._recent_steps])
+        return "\n".join(lines) + "\n"
 
 
 def _norm_label(text: str) -> str:
@@ -884,4 +940,19 @@ def _match_key(value: Any, mapping: dict[Any, Any]) -> Any:
                 return candidate
         if low in mapping:
             return low
+    return value
+
+
+def _redact_for_artifact(value: Any) -> Any:
+    """Best-effort redaction for secrets in failure artifacts."""
+    if isinstance(value, dict):
+        redacted = {}
+        for key, item in value.items():
+            if str(key).lower() in {"password", "token", "secret", "api_key", "apikey"}:
+                redacted[key] = "(redacted)"
+            else:
+                redacted[key] = _redact_for_artifact(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_for_artifact(item) for item in value]
     return value
