@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+shots/
+
+# Local secrets — IMAP app passwords, etc. Never commit.
+.env*
+*.secret.json

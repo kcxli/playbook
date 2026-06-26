@@ -1,0 +1,172 @@
+version: 1
+name: "UC Santa Barbara - Lecturer Recruitment Pool in Statistics and Applied Probability (UC Recruit)"
+job_id: "JPF03088"
+url: "https://recruit.ap.ucsb.edu/JPF03088"
+
+# =============================================================================
+# UC RECRUIT (AP Recruit) - applicant flow for UCSB JPF03088
+# -----------------------------------------------------------------------------
+# Posting facts checked from the public page on 2026-06-19:
+#   - Required documents: Curriculum Vitae, Cover Letter, Statement of Teaching.
+#   - Optional document: Teaching Evaluations.
+#   - References: 3-5 required, contact information only.
+#
+# What is filled in here:
+#   - Public posting -> UC Recruit sign-in.
+#   - Returning-user login path.
+#   - Commented first-time email-verification path.
+#   - The shared UC Recruit applicant-info wizard, adapted from the UCI playbook.
+#
+# What still needs a live authenticated capture:
+#   - UCSB-specific document upload rows.
+#   - UCSB-specific 3-5 reference-contact widgets.
+# Run tools/form-extractor.js after login on the documents/references page and
+# paste the capture into tools/draft_playbook.py or hand it to Codex.
+# =============================================================================
+
+steps:
+  # --- landing page -> start the application ---------------------------------
+  # The public HTML has a form button posting to /JPF03088/apply. Start from the
+  # visible button so the flow matches what an applicant sees.
+  - open: "https://recruit.ap.ucsb.edu/JPF03088"
+    wait_after: 1
+  - click: "Apply now"
+    wait_after: 2
+
+  # --- sign in ---------------------------------------------------------------
+  - fill: "Enter email address or ApplicantID"
+    selector: "#login_email_address"
+    value: "{{ emails.institution_email }}"
+  - click: "Next"
+    wait_after: 2
+
+  # First-time applicant path. This is the active path for creating a fresh UC
+  # Recruit account. It requires IMAP_USER and IMAP_PASSWORD in the environment
+  # so await_email_link can read the UC Recruit verification email.
+  - click: "Send verification email"
+    wait_after: 2
+  - await_email_link:
+      subject: "verif"
+      from: "recruit"
+      link_pattern: 'https://recruit\.ap\.ucsb\.edu/[^\s"<>]*(?:password|verif|confirm|token|auth|portfolio)[^\s"<>]*'
+      timeout: 240
+      poll: 5
+    wait_after: 3
+  - fill: "New password"
+    selector: "#portfolio_password"
+    value: "{{ account.password }}"
+  - click: "Continue"
+    wait_after: 2
+  - fill: "Password confirmation"
+    selector: "#portfolio_password_confirmation"
+    value: "{{ account.password }}"
+  - click: "Confirm"
+    wait_after: 3
+
+  # Returning-user path. Use this instead if you want to reuse an existing UC
+  # Recruit account: comment out the first-time block above, then enable these.
+  # - fill: "Password"
+  #   selector: "#login_password"
+  #   value: "{{ account.password }}"
+  # - click: "Log in"
+  #   wait_after: 3
+
+  # --- open this position's application --------------------------------------
+  - open: "https://recruit.ap.ucsb.edu/JPF03088/apply"
+    wait_after: 2
+  - click: "Apply now"
+    optional: true
+    wait_after: 2
+  - click: "Continue"
+    optional: true
+    wait_after: 2
+
+  # ===========================================================================
+  # APPLICATION FORM - shared UC Recruit applicant-info wizard
+  # ===========================================================================
+
+  # --- Contact information ----------------------------------------------------
+  - fill: "First name"
+    selector: "#applicant_first_name"
+    value: "{{ person_name.legal_name.first }}"
+  - fill: "Last name"
+    selector: "#applicant_last_name"
+    value: "{{ person_name.legal_name.last }}"
+  - fill: "Phone number"
+    selector: "#applicant_phone"
+    value: "{{ address_and_contact.phone_numbers.mobile }}"
+    optional: true
+  - fill: "Mailing address"
+    selector: "#applicant_application_attributes_address"
+    value: "{{ address_and_contact.primary_address.line_1 }}, {{ address_and_contact.primary_address.city }}, {{ address_and_contact.primary_address.state_province }} {{ address_and_contact.primary_address.postal_code }}"
+  - click: "Next: Degree"
+    wait_after: 2
+
+  # --- Degree ----------------------------------------------------------------
+  - fill: "Highest degree"
+    selector: "#applicant_application_attributes_highest_degree_attributes_name"
+    value: "{{ answers.degree }}"
+  - select: "Institution"
+    selector: "#applicant_application_attributes_highest_degree_attributes_institution"
+    value: "{{ answers.school }}"
+    optional: true
+  - fill: "Date obtained"
+    selector: "#applicant_application_attributes_highest_degree_attributes_date"
+    value: "{{ answers.degree_year_acquired }}"
+    optional: true
+  # Degree disciplines is a typeahead/multi-select on UC Recruit. The exact
+  # selector/options should be confirmed with the extractor in the UCSB session.
+  - press: "Degree disciplines"
+    selector: "xpath=//*[contains(normalize-space(.), 'Degree disciplines')]/following::*[@role='combobox' or self::input][1]"
+    value: "{{ answers.degree_discipline }}, Enter"
+    optional: true
+    wait_after: 1
+  - click: "Next: Employment"
+    wait_after: 2
+
+  # --- Employment ------------------------------------------------------------
+  - select: "Affiliation or University"
+    selector: "#applicant_affiliation"
+    value: "{{ answers.current_organization }}"
+    optional: true
+  - fill: "Job title"
+    selector: "#applicant_current_job_title"
+    value: "{{ answers.current_title }}"
+  - click: "Next: Search Sources"
+    wait_after: 2
+
+  # --- Search Sources --------------------------------------------------------
+  # Search-source option ids are campus/posting specific. Label matching may work
+  # if "UCSB website" is present; otherwise capture this page and replace it.
+  - check: "{{ answers.search_source }}"
+    optional: true
+  - click: "Next: Review"
+    wait_after: 2
+
+  # --- Save applicant information -------------------------------------------
+  - click: "Save my information"
+    optional: true
+    wait_after: 3
+
+  # --- Documents + references ------------------------------------------------
+  # TODO live capture required. Expected mapping once selectors are known:
+  #   Curriculum Vitae       -> {{ documents.resume_path_or_url }}
+  #   Cover Letter           -> {{ documents.cover_letter_path_or_url }}
+  #   Statement of Teaching  -> {{ documents.teaching_statement_path }}
+  #   Teaching Evaluations   -> {{ documents.teaching_evaluations_path }} (optional)
+  #   References             -> references.0 through references.4 contact fields
+  #
+  # Use this command while logged in on the documents/references page:
+  #   python3 tools/draft_playbook.py --collect \
+  #     --name "UC Santa Barbara - Lecturer Recruitment Pool in Statistics and Applied Probability (UC Recruit)" \
+  #     --url "https://recruit.ap.ucsb.edu/JPF03088" \
+  #     --job-id "JPF03088" \
+  #     --out playbooks/ucsb.generated.playbook.yaml
+
+  # --- review & submit -------------------------------------------------------
+  - scroll: "bottom"
+    optional: true
+
+  # Intentionally disabled. Enable only after a human reviews the completed form.
+  # - click: "Submit application"
+  #   wait_after: 3

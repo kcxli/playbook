@@ -1,0 +1,34 @@
+{
+  "account": {
+    "password": "Str0ng!Passw0rd2026"
+  },
+
+  "documents": {
+    "resume_path_or_url": "applicants/cv.pdf",
+    "cover_letter_path_or_url": "applicants/cover_letter.pdf",
+    "teaching_statement_path": "applicants/teaching_statement.pdf",
+    "syllabus_path": "applicants/syllabus.pdf",
+    "teaching_evaluations_path": "applicants/teaching_evaluations.pdf",
+    "references_path": "applicants/references.pdf",
+    "additional_attachment_path": ""
+  },
+
+  "answers": {
+    "interfolio_state": "TX",
+    "degree": "Ph.D. - Doctor of Philosophy",
+    "degree_date_earned": "May 15, 2019",
+    "degree_year_acquired": "2019",
+    "school": "Johns Hopkins University",
+    "current_title": "Assistant Professor of Epidemiology",
+    "current_organization": "Emory University Rollins School of Public Health",
+
+    "interfolio_position_status": "Tenure-track",
+    "interfolio_referral_source": "A Professional or Academic Organization",
+    "interfolio_discipline": "STEM (Science, Technology, Engineering, Math)",
+
+    "gender": "Male",
+    "is_hispanic_or_latino": true,
+    "race_ethnicity": null,
+    "is_veteran": false
+  }
+}
