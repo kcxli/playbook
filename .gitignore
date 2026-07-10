@@ -1,7 +1,10 @@
 .venv/
+node_modules/
 __pycache__/
 *.pyc
+.DS_Store
 shots/
+.run/
 
 # Local secrets — IMAP app passwords, etc. Never commit.
 .env*

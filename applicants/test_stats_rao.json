@@ -37,8 +37,8 @@
   },
 
   "identity_and_status": {
-    "gender": { "value": "Non-Binary", "custom_value": "", "prefer_not_to_say": false },
-    "pronouns": { "set": "they/them", "custom": "" },
+    "gender": { "value": "Female", "custom_value": "", "prefer_not_to_say": false },
+    "pronouns": { "set": "she/her", "custom": "" },
     "sexual_orientation": { "value": "", "prefer_not_to_say": true },
     "marital_status": { "value": "Single", "prefer_not_to_say": false }
   },
@@ -155,7 +155,14 @@
     "employment_type_preference": ["full_time"],
     "work_location_preference": ["onsite", "hybrid"],
     "availability_to_start": "2026-09-01",
-    "salary_expectation": { "currency": "USD", "amount_min": 72000, "amount_max": 88000, "period": "annual" },
+    "salary_expectation": {
+      "currency": "USD",
+      "amount_min": 72000,
+      "amount_target": 82000,
+      "amount_max": 88000,
+      "period": "annual",
+      "negotiable": true
+    },
     "willing_to_relocate": true,
     "willing_to_travel_percent": 5
   },
@@ -215,6 +222,7 @@
     "research_statement_path": "applicants/teaching_statement.pdf",
     "statement_of_research_path": "applicants/teaching_statement.pdf",
     "teaching_statement_path": "applicants/teaching_statement.pdf",
+    "writing_sample_path": "applicants/teaching_statement.pdf",
     "teaching_evaluations_path": "applicants/teaching_evaluations.pdf",
     "syllabus_path": "applicants/syllabus.pdf",
     "references_path": "applicants/references.pdf",
@@ -233,6 +241,35 @@
     "attestation": "I certify that the information provided is true and complete."
   },
 
+  "application_defaults": {
+    "authorized_to_work_us": true,
+    "requires_visa_sponsorship": true,
+    "has_conflict_of_interest": false,
+    "has_conflict_of_interest_details": "",
+    "desired_salary": "82000",
+    "salary_period": "annual",
+    "referral_source": "HERC - Higher Education Recruitment Consortium",
+    "specific_referral_source": "HERC statistics faculty mailing list",
+    "employee_referral": false,
+    "employee_referrer_name": "",
+    "employee_referrer_relationship": "",
+    "previously_employed_by_employer": false,
+    "previously_employed_by_employer_details": "",
+    "previous_employer_employee_id": "",
+    "related_to_employer_employee": false,
+    "related_to_employer_employee_details": "",
+    "claims_veterans_preference": false,
+    "excluded_from_government_program": false,
+    "excluded_from_government_program_details": "N/A"
+  },
+  "application_exceptions": {
+    "nyulangone": {
+      "previously_employed_by_employer": true,
+      "previously_employed_by_employer_details": "Research collaboration appointment, Biostatistics Core, June 2022 to August 2022.",
+      "previous_employer_employee_id": "N/A"
+    }
+  },
+
   "answers": {
     "county": "Middlesex",
     "region": "Boston/Cambridge",
@@ -244,8 +281,9 @@
     "nyulangone_employee_id": "N/A",
     "previously_employed_by_umn": "No",
     "previously_employed_by_ua": "No",
+    "utah_employee_id": "",
 
-    "gender": "Non-Binary",
+    "gender": "Female",
     "is_hispanic_or_latino": "No",
     "ethnicity": "Asian",
     "race_ethnicity": "Asian",
@@ -257,7 +295,7 @@
     "former_foster_child": false,
 
     "desired_salary": "82000",
-    "highest_education": "Post-Doctorate",
+    "highest_education": "Doctorate (Academic)",
     "nyulangone_highest_education": "Post Graduate Degree",
     "degree": "Ph.D. - Doctor of Philosophy",
     "umn_degree": "Doctor of Philosophy",

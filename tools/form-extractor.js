@@ -114,11 +114,165 @@
 
   const REVEAL_WORDS = /(?:\b(yes|other|add|attach|upload|choose|browse|search|lookup|select|new|more|edit|details?|explain|specify|current|previous|former|relative|family|felony|visa|sponsor|employee|reference|education|degree|employer|position)\b|是|否|其他|添加|上传|选择|浏览|搜索|查找|新增|更多|编辑|详情|说明|当前|以前|曾经|亲属|家属|家庭|签证|资助|雇员|员工|推荐|教育|学位|雇主|职位|岗位|附件|简历|证明|文件)/i;
   const NAV_WORDS = /(?:\b(next|continue|submit|save|apply|register|login|log in|sign in|sign up|create account|finish|done|cancel|delete|remove|close|back|previous|home|logout|sign out|send verification|email)\b|下一步|继续|提交|保存|申请|注册|登录|登入|完成|取消|删除|移除|关闭|返回|上一步|首页|退出|发送|邮箱|邮件)/i;
+  const FINAL_SUBMIT_WORDS = /\b(submit|finish|certify and submit|send application|complete application|withdraw|delete|remove)\b/i;
+  const SENSITIVE_WORDS = /\b(ssn|social security|date of birth|birth date|dob|passport|driver'?s license|national id|government id|visa number|bank|routing|payment|credit card|felony|convicted|disability|veteran|race|ethnic|hispanic|latino|gender|sex|citizenship|sponsor|sponsorship|signature|attest|certify)\b/i;
+  const ERROR_SELECTOR = [
+    "[role=alert]",
+    "[aria-live=assertive]",
+    "[aria-live=polite]",
+    ".error",
+    ".errors",
+    ".field-validation-error",
+    ".validation-summary-errors",
+    ".invalid-feedback",
+    ".alert-danger",
+    ".alert-error",
+    ".message-error",
+    ".ps_box-error",
+    ".ps-message",
+    ".ui-message-error",
+    ".has-error",
+    ".form-error"
+  ].join(",");
 
   // -- small utilities -------------------------------------------------------
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function copyTextToClipboard(text) {
+    const modernError = await tryModernClipboard(text);
+    if (!modernError) return { ok: true, method: "navigator.clipboard" };
+
+    const execCopied = copyWithExecCommand(text);
+    if (execCopied) return { ok: true, method: "document.execCommand" };
+
+    showCopyPanel(text, modernError);
+    return { ok: false, method: "manual panel", error: modernError };
+  }
+
+  async function tryModernClipboard(text) {
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+      return "navigator.clipboard.writeText is unavailable";
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      return "";
+    } catch (err) {
+      return err && err.message ? err.message : String(err);
+    }
+  }
+
+  function copyWithExecCommand(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.width = "1px";
+    textarea.style.height = "1px";
+    textarea.style.opacity = "0.01";
+    textarea.style.zIndex = "2147483647";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (_err) {
+      copied = false;
+    }
+    textarea.remove();
+    return copied;
+  }
+
+  function showCopyPanel(text, failureReason) {
+    const existing = document.getElementById("playbook-extractor-copy-panel");
+    if (existing) existing.remove();
+
+    const panel = document.createElement("div");
+    panel.id = "playbook-extractor-copy-panel";
+    panel.style.position = "fixed";
+    panel.style.right = "16px";
+    panel.style.bottom = "16px";
+    panel.style.width = "min(720px, calc(100vw - 32px))";
+    panel.style.maxHeight = "min(520px, calc(100vh - 32px))";
+    panel.style.padding = "12px";
+    panel.style.background = "#fff";
+    panel.style.color = "#111";
+    panel.style.border = "2px solid #444";
+    panel.style.boxShadow = "0 8px 28px rgba(0,0,0,0.35)";
+    panel.style.zIndex = "2147483647";
+    panel.style.font = "13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+
+    const title = document.createElement("div");
+    title.textContent = "Form extractor output";
+    title.style.fontWeight = "700";
+    title.style.marginBottom = "6px";
+
+    const help = document.createElement("div");
+    help.textContent = "Automatic clipboard copy was blocked. Click Copy, or press Cmd/Ctrl+C while the text below is selected.";
+    help.style.marginBottom = "8px";
+
+    const reason = document.createElement("div");
+    reason.textContent = `Clipboard failure: ${failureReason}`;
+    reason.style.marginBottom = "8px";
+    reason.style.color = "#555";
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.width = "100%";
+    textarea.style.height = "300px";
+    textarea.style.boxSizing = "border-box";
+    textarea.style.font = "12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    textarea.style.whiteSpace = "pre";
+
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = "8px";
+    row.style.marginTop = "8px";
+    row.style.alignItems = "center";
+
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.textContent = "Copy";
+    copyButton.style.padding = "6px 10px";
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "Close";
+    closeButton.style.padding = "6px 10px";
+
+    const status = document.createElement("span");
+    status.textContent = "Text is selected.";
+    status.style.color = "#555";
+
+    copyButton.addEventListener("click", async () => {
+      const modernError = await tryModernClipboard(text);
+      if (!modernError || copyWithExecCommand(text)) {
+        status.textContent = "Copied.";
+        status.style.color = "#067d17";
+        textarea.focus();
+        textarea.select();
+        return;
+      }
+      status.textContent = "Copy still blocked. Press Cmd/Ctrl+C.";
+      status.style.color = "#a33";
+      textarea.focus();
+      textarea.select();
+    });
+
+    closeButton.addEventListener("click", () => panel.remove());
+
+    row.append(copyButton, closeButton, status);
+    panel.append(title, help, reason, textarea, row);
+    document.body.appendChild(panel);
+    textarea.focus();
+    textarea.select();
   }
 
   function textOf(el) {
@@ -209,6 +363,138 @@
   function truncate(text, max = 160) {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     return clean.length > max ? clean.slice(0, max - 3) + "..." : clean;
+  }
+
+  function norm(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function slug(text) {
+    return norm(text).replace(/\s+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64) || "todo";
+  }
+
+  function template(path) {
+    return path ? `{{ ${path} }}` : "";
+  }
+
+  function dataHintForText(rawText, action = "") {
+    const text = norm(rawText);
+    const patterns = [
+      [/\bverification code\b/, null, "one-time code; use await_email_code or manual step"],
+      [/\bconfirm password\b|\bpassword confirmation\b|\bre enter password\b/, "account.password", "account password"],
+      [/\bpassword\b/, "account.password", "account password"],
+      [/\buser\s*name\b|\busername\b|\blogin id\b/, "account.user_name", "account username"],
+      [/\bemail\b/, "emails.institution_email", "email"],
+      [/\bfull name\b|\bfull legal name\b|\byour name\b|\bapplicant name\b|\bsignature\b/, "person_name.legal_name.first + person_name.legal_name.last", "full name"],
+      [/\bfirst name\b|\bgiven name\b|\blegal first\b/, "person_name.legal_name.first", "first name"],
+      [/\bmiddle name\b|\blegal middle\b/, "person_name.legal_name.middle", "middle name"],
+      [/\blast name\b|\bfamily name\b|\bsurname\b|\blegal last\b/, "person_name.legal_name.last", "last name"],
+      [/\bsuffix\b/, "person_name.legal_name.suffix", "name suffix"],
+      [/^(title|prefix|salutation)\b/, "person_name.legal_name.prefix", "name prefix"],
+      [/\bdate of birth\b|\bbirth date\b|\bdob\b/, "detailed_personal_info.date_of_birth", "date of birth"],
+      [/\btoday'?s date\b|\bsignature date\b|\bdate signed\b|^date$/, "builtins.today", "today"],
+      [/\baddress line 2\b|\baddress 2\b|\bline two\b|\bline 2\b|\bapt\b|\bapartment\b/, "address_and_contact.primary_address.line_2", "address line 2"],
+      [/\bstreet\b|\baddress line 1\b|\baddress 1\b|\bhome address\b|\bmailing address\b|\baddress\b/, "address_and_contact.primary_address.line_1", "address line 1"],
+      [/\bzip\b|\bpostal\b/, "address_and_contact.primary_address.postal_code", "postal code"],
+      [/\bstate\b|\bprovince\b|\bdistrict\b/, "address_and_contact.primary_address.state_province", "state/province"],
+      [/\bcountry\b|\bnation\b/, "address_and_contact.primary_address.country", "country"],
+      [/\bcity\b/, "address_and_contact.primary_address.city", "city"],
+      [/\bmobile\b|\bcell\b/, "address_and_contact.phone_numbers.mobile", "mobile phone"],
+      [/\bhome phone\b|\btelephone.*home\b/, "address_and_contact.phone_numbers.home", "home phone"],
+      [/\bwork phone\b|\boffice phone\b|\btelephone.*office\b/, "address_and_contact.phone_numbers.work", "work phone"],
+      [/\bphone\b|\btelephone\b|\bprimary number\b/, "address_and_contact.phone_numbers.mobile", "phone"],
+      [/\bhighest.*education\b|\beducation level\b|\bhighest level\b/, "app_answers.highest_education", "application answer"],
+      [/\bdegree\b|\bqualification\b/, "app_answers.degree", "application answer"],
+      [/\bmajor\b|\bfield of study\b|\bdiscipline\b/, "app_answers.major", "application answer"],
+      [/\binstitution\b|\bschool\b|\buniversity\b|\bcollege\b/, "app_answers.school", "application answer"],
+      [/\bgraduation\b|\bdate earned\b|\byear acquired\b|\bdate obtained\b/, "app_answers.degree_date_earned", "application answer"],
+      [/\bcurrent title\b|\bjob title\b|\bposition title\b/, "app_answers.current_title", "application answer"],
+      [/\bcurrent organization\b|\bcurrent employer\b|\bcurrent company\b/, "app_answers.current_organization", "application answer"],
+      [/\bemployer\b|\bcompany\b|\borganization\b/, "work_history.0.company", "work history"],
+      [/\bsupervisor\b|\bmanager\b/, "work_history.0.supervisor_name", "work history"],
+      [/\bresponsibilit|\bnature of work\b|\bduties\b/, "work_history.0.responsibilities", "work history"],
+      [/\breason for leaving\b/, "work_history.0.reason_for_leaving", "work history"],
+      [/\bstart date\b|\bdate started\b/, "work_history.0.start_date", "work history"],
+      [/\bend date\b|\bdate ended\b/, "work_history.0.end_date", "work history"],
+      [/\bavailability\b|\bearliest date\b|\bstart work\b/, "app_answers.availability_to_start", "application answer"],
+      [/\bsalary\b|\bcompensation\b|\bpay\b|\bwage\b/, "app_answers.desired_salary", "application answer"],
+      [/\bspecific referral\b|\breferral detail\b/, "app_answers.specific_referral_source", "application answer"],
+      [/\breferral source\b|\bhow did you hear\b|\bsource\b/, "app_answers.referral_source", "application answer"],
+      [/\bauthorized\b.*\bwork\b|\bwork authorization\b/, "app_answers.authorized_to_work_us", "application answer"],
+      [/\bvisa\b|\bsponsor\b|\bsponsorship\b/, "app_answers.requires_visa_sponsorship", "application answer"],
+      [/\bformer employee\b|\bpreviously employed\b|\bever been employed\b/, "app_answers.previously_employed_by_employer", "application answer"],
+      [/\brelated\b.*\bemployee\b|\bfamily\b.*\bemployee\b|\brelative\b/, "app_answers.related_to_employer_employee", "application answer"],
+      [/\bconflict\b/, "app_answers.has_conflict_of_interest", "application answer"],
+      [/\bgender\b|\bsex\b/, "app_answers.gender", "application answer"],
+      [/\bhispanic\b|\blatino\b|\blatina\b/, "app_answers.is_hispanic_or_latino", "application answer"],
+      [/\brace\b|\bethnic\b/, "app_answers.race_ethnicity", "application answer"],
+      [/\bveteran\b|\bmilitary\b|\barmed forces\b/, "app_answers.is_veteran", "application answer"],
+      [/\bdisability\b|\bdisabled\b/, "app_answers.has_disability", "application answer"],
+      [/\blinkedin\b/, "documents.linkedin_url", "document/profile URL"],
+      [/\bgithub\b/, "documents.github_url", "document/profile URL"],
+      [/\bportfolio\b|\bwebsite\b/, "documents.portfolio_url", "document/profile URL"]
+    ];
+    for (const [pattern, path, reason] of patterns) {
+      if (!pattern.test(text)) continue;
+      if (!path) return { path: "", template: "", confidence: "none", reason, kind: "manual" };
+      if (path.includes(" + ")) {
+        return {
+          path,
+          template: "{{ person_name.legal_name.first }} {{ person_name.legal_name.last }}",
+          confidence: "medium",
+          reason,
+          kind: "canonical"
+        };
+      }
+      return {
+        path,
+        template: template(path),
+        confidence: action === "click" ? "low" : "medium",
+        reason,
+        kind: path.startsWith("app_answers.") ? "app_answers" : path.startsWith("answers.") ? "answers" : "canonical"
+      };
+    }
+    return { path: `answers.${slug(rawText)}`, template: "", confidence: "todo", reason: "unknown field", kind: "todo" };
+  }
+
+  function dataHintForElement(el, action = "") {
+    const text = [
+      labelFor(el),
+      el.placeholder || "",
+      attr(el, "name"),
+      el.id || "",
+      sectionFor(el)
+    ].join(" ");
+    return dataHintForText(text, action);
+  }
+
+  function reviewFlagsForText(rawText, action = "") {
+    const text = String(rawText || "");
+    const flags = [];
+    if (SENSITIVE_WORDS.test(text)) flags.push("sensitive_or_legal_review");
+    if (FINAL_SUBMIT_WORDS.test(text) || (action === "click" && NAV_WORDS.test(text))) flags.push("navigation_or_submit_review");
+    if (/\b(captcha|2fa|two factor|verification|one time|otp)\b/i.test(text)) flags.push("manual_or_email_verification");
+    return unique(flags);
+  }
+
+  function reviewFlagsForElement(el, action = "") {
+    const text = [
+      labelFor(el),
+      textOf(el),
+      attr(el, "name"),
+      el.id || "",
+      attr(el, "title"),
+      sectionFor(el)
+    ].join(" ");
+    const flags = reviewFlagsForText(text, action);
+    if (!isVisible(el)) flags.push("hidden_or_collapsed_do_not_draft_unless_revealed");
+    if (isDisabled(el)) flags.push("disabled_in_captured_state");
+    return unique(flags);
   }
 
   function countInDoc(doc, selector) {
@@ -471,11 +757,13 @@
   }
 
   function selectOptionRecords(select) {
-    return Array.from(select.options || []).map(option => {
+    return Array.from(select.options || []).map((option, index) => {
       const text = option.text || attr(option, "label") || option.value || textOf(option);
       const placeholder = /^(--\s*)?(select|choose|please select)\s*(--)?$/i.test(text || "");
       return {
+        index,
         text: truncate(text || "", 160),
+        normalized_text: norm(text || ""),
         value: option.value || "",
         label: attr(option, "label"),
         disabled: Boolean(option.disabled),
@@ -498,8 +786,10 @@
     if (!id) return [];
     const list = ownDoc(input).getElementById(id);
     if (!list) return [];
-    return Array.from(list.querySelectorAll("option")).map(option => ({
+    return Array.from(list.querySelectorAll("option")).map((option, index) => ({
+      index,
       text: truncate(attr(option, "label") || option.value || textOf(option), 160),
+      normalized_text: norm(attr(option, "label") || option.value || textOf(option)),
       value: option.value || "",
       label: attr(option, "label")
     })).filter(option => option.text || option.value);
@@ -574,6 +864,8 @@
     const required = requiredInfo(el);
     const frame = framePathForDoc(ownDoc(el), frames);
     const type = attr(el, "type") || attr(el, "role") || "";
+    const actionHint = actionHintFor(el);
+    const dataHint = dataHintForElement(el, actionHint);
     const record = {
       label: truncate(labelFor(el), 240),
       tag,
@@ -602,7 +894,10 @@
       document_order: documentOrder(el),
       section: sectionFor(el),
       form: formRecord(el, frames),
-      action_hint: actionHintFor(el)
+      action_hint: actionHint,
+      data_hint: dataHint,
+      suggested_template: dataHint.template,
+      review_flags: reviewFlagsForElement(el, actionHint)
     };
     Object.keys(record).forEach(key => record[key] === undefined && delete record[key]);
     return Object.assign(record, extra);
@@ -729,6 +1024,24 @@
       .filter(text => !/^(loading|no data|no results|search)$/i.test(text)));
   }
 
+  function validationMessages(frames) {
+    const seen = new Set();
+    const out = [];
+    queryAllDocs(frames, ERROR_SELECTOR)
+      .filter(isVisible)
+      .forEach(node => {
+        const text = truncate(textOf(node) || attr(node, "aria-label") || attr(node, "title"), 500);
+        if (!text || seen.has(norm(text))) return;
+        seen.add(norm(text));
+        out.push(Object.assign(elementRecord(node, frames, {
+          text,
+          action_hint: "inspect",
+          data_hint: { path: "", template: "", confidence: "none", reason: "validation message", kind: "manual" }
+        }), { text }));
+      });
+    return out;
+  }
+
   async function probeCustomWidget(el, frames) {
     const doc = ownDoc(el);
     const before = new Set(visibleOptionTexts(frames));
@@ -808,6 +1121,72 @@
       groups.get(key).push(radio);
     });
     return Array.from(groups.values());
+  }
+
+  function checkboxGroupContainer(checkbox) {
+    let node = checkbox.parentElement;
+    for (let depth = 0; node && depth < 7; depth += 1, node = node.parentElement) {
+      const boxes = Array.from(node.querySelectorAll("input[type=checkbox]")).filter(isVisible);
+      if (boxes.length >= 2 && boxes.length <= 12) return node;
+    }
+    return null;
+  }
+
+  function checkboxGroupQuestion(container, first) {
+    if (!container) return "";
+    const legend = container.querySelector("legend");
+    if (legend && textOf(legend)) return textOf(legend);
+    const heading = container.querySelector("h1,h2,h3,h4,h5,h6,[role=heading],.question,.label,.control-label,.ps-label");
+    if (heading && textOf(heading) && !containerContainsOnlyOptionLabel(heading, first)) {
+      return textOf(heading);
+    }
+    const text = containerQuestionText(container, first);
+    return text && text.length <= 240 ? text : "";
+  }
+
+  function containerContainsOnlyOptionLabel(node, first) {
+    const option = labelFor(first);
+    const text = textOf(node);
+    return option && norm(text) === norm(option);
+  }
+
+  function checkboxGroups(frames) {
+    const checkboxes = queryAllDocs(frames, "input[type=checkbox]").filter(isVisible);
+    const groups = new Map();
+    checkboxes.forEach(checkbox => {
+      const container = checkboxGroupContainer(checkbox);
+      if (!container) return;
+      const key = elementKey(container);
+      if (!groups.has(key)) groups.set(key, { container, boxes: [] });
+      groups.get(key).boxes.push(checkbox);
+    });
+    return Array.from(groups.values())
+      .filter(group => group.boxes.length >= 2)
+      .filter(group => {
+        const labels = group.boxes.map(labelFor).map(norm).join(" | ");
+        return /(yes|no|decline|prefer not|do not want|do not wish|disability|veteran)/.test(labels);
+      });
+  }
+
+  function checkboxGroupKind(group) {
+    const labels = group.boxes.map(labelFor).map(norm);
+    const joined = labels.join(" | ");
+    const hasYes = labels.some(label => /^yes\b/.test(label) || label === "yes");
+    const hasNo = labels.some(label => /^no\b/.test(label) || label === "no");
+    const hasDecline = /(decline|prefer not|do not want|do not wish)/.test(joined);
+    const raceLike = /(asian|white|black|african|hawaiian|pacific|american indian|alaska native|two or more)/.test(joined);
+    if (!raceLike && ((hasYes && hasNo) || hasDecline)) return "exclusive_choice_likely";
+    return "multi_select_likely";
+  }
+
+  function checkboxGroupScope(group, frames) {
+    const names = unique(group.boxes.map(box => attr(box, "name")).filter(Boolean));
+    if (names.length === 1) return `input[type=checkbox][name="${attrEscape(names[0])}"]`;
+    const info = selectorInfo(group.container);
+    if (info.selector && info.selector !== "(no stable selector)") {
+      return `${info.selector} input[type=checkbox]`;
+    }
+    return "";
   }
 
   function checkboxLabel(checkbox) {
@@ -1013,7 +1392,7 @@
   const collected = collectFrames();
   let cachedFrames = collected.frames;
   const report = {
-    schema_version: 1,
+    schema_version: 2,
     tool: "form-extractor",
     url: location.href,
     title: document.title,
@@ -1035,6 +1414,7 @@
       datalist_inputs: [],
       file_uploads: [],
       radio_groups: [],
+      checkbox_groups: [],
       checkboxes: [],
       custom_widgets: [],
       hidden_controls: []
@@ -1042,7 +1422,18 @@
     findings: {
       modal_fields: [],
       conditional_fields: [],
-      visible_dialogs: []
+      visible_dialogs: [],
+      validation_messages: []
+    },
+    playbook_guidance: {
+      value_sources: {
+        applicant_facts: "Use canonical paths such as person_name.*, address_and_contact.*, education.*, work_history.*, documents.*.",
+        reusable_application_answers: "Use app_answers.* for referral, salary, work authorization, sponsorship, demographics, prior-employer, related-employee, and conflict questions.",
+        site_specific_answers: "Use answers.<site>_* only for true platform-specific questions with no portable applicant meaning."
+      },
+      equivalences: "Use canonical values in playbooks. If a live option wording is missing, run with --screenshot-dir and promote equivalence-gap.json via tools/accept_equivalence_gap.py.",
+      hidden_controls: "Do not draft active steps from hidden_controls unless a conditional/modal finding identifies the trigger that reveals them.",
+      final_submit: "Keep final submit/finish/certification clicks commented until human review."
     },
     warnings: [],
     authoring_notes: []
@@ -1057,6 +1448,16 @@
   log("Captured at:", new Date().toISOString());
   log("");
 
+  section("-- AI PLAYBOOK DRAFTING RULES ----------------------------------------");
+  log("  - Use canonical profile paths for applicant facts and app_answers.* for reusable application answers.");
+  log("  - Use native select: for real <select> controls; the runner handles deterministic equivalences at runtime.");
+  log("  - Use press: only for custom combobox/typeahead widgets that are not native <select> controls.");
+  log("  - For radio groups and exclusive checkbox choice groups, prefer pick: with the provided scope.");
+  log("  - Do not turn hidden/collapsed controls into active steps unless this report says a trigger revealed them.");
+  log("  - Leave final submit/finish/certification actions commented until a human reviews the filled application.");
+  log("  - If a live option wording is missing later, use equivalence-gap.json with tools/accept_equivalence_gap.py.");
+  log("");
+
   if (collected.blocked.length) {
     section("-- IFRAMES NOT READABLE ------------------------------------------------");
     collected.blocked.forEach((item, i) => log(`  [${i + 1}] ${item}`));
@@ -1069,6 +1470,17 @@
     log("");
   }
 
+  const errors = validationMessages(cachedFrames);
+  if (errors.length) {
+    section("-- VISIBLE VALIDATION / ERROR MESSAGES -------------------------------");
+    report.findings.validation_messages = errors;
+    errors.forEach((item, i) => {
+      const framePart = item.frame === "main" ? "" : `  frame: ${item.frame}`;
+      log(`  [${i + 1}] "${truncate(item.text, 260)}"  selector: ${item.selector}${framePart}`);
+    });
+    log("");
+  }
+
   const buttons = queryAllDocs(cachedFrames, "button,input[type=button],input[type=submit],input[type=reset],a,[role=button],.link-type")
     .filter(isVisible)
     .filter(button => textOf(button) || attr(button, "aria-label") || attr(button, "title") || attr(button, "value"));
@@ -1077,7 +1489,11 @@
     buttons.forEach((button, i) => {
       const text = truncate(textOf(button) || attr(button, "aria-label") || attr(button, "title") || attr(button, "value"));
       const type = attr(button, "type");
-      const hint = isLikelyModalButton(button) ? "  likely reveal/modal trigger" : "";
+      const hints = [];
+      if (isLikelyModalButton(button)) hints.push("likely reveal/modal trigger");
+      if (NAV_WORDS.test(text) || /submit/i.test(type)) hints.push("navigation/save/review ordering");
+      if (FINAL_SUBMIT_WORDS.test(text)) hints.push("final-submit risk; keep commented");
+      const hint = hints.length ? `  ${hints.join("; ")}` : "";
       const frame = framePathForDoc(ownDoc(button), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
       report.buttons.push(elementRecord(button, cachedFrames, {
@@ -1108,10 +1524,24 @@
   const selects = queryAllDocs(cachedFrames, "select").filter(isVisible);
   if (selects.length) {
     section("-- NATIVE DROPDOWNS (<select>) ---------------------------------------");
-    report.controls.native_selects = selects.map(select => elementRecord(select, cachedFrames, {
-      options: selectOptionRecords(select)
-    }));
+    report.controls.native_selects = selects.map(select => {
+      const options = selectOptionRecords(select);
+      return elementRecord(select, cachedFrames, {
+        options,
+        option_count: options.filter(option => !option.placeholder).length,
+        equivalence_context: labelFor(select),
+        review_flags: options.length > 50
+          ? unique(reviewFlagsForElement(select, "select").concat(["long_option_list_verify_applicant_value_exists"]))
+          : reviewFlagsForElement(select, "select")
+      });
+    });
     logControlList(selects, cachedFrames);
+    selects.forEach((select, i) => {
+      const optionCount = selectOptionRecords(select).filter(option => !option.placeholder).length;
+      if (optionCount > 50) {
+        log(`  [${i + 1}] note: long option list (${optionCount} options). Verify applicant-specific values such as school/employer exist before running.`);
+      }
+    });
     log("");
   }
 
@@ -1171,6 +1601,39 @@
     log("");
   }
 
+  const checkboxChoiceGroups = checkboxGroups(cachedFrames);
+  if (checkboxChoiceGroups.length) {
+    section("-- CHECKBOX CHOICE GROUPS --------------------------------------------");
+    log("  These are checkbox sets that may behave like radio groups. Prefer pick: only when exclusive_choice_likely is correct.");
+    checkboxChoiceGroups.forEach((group, i) => {
+      const first = group.boxes[0];
+      const question = checkboxGroupQuestion(group.container, first);
+      const options = group.boxes.map(labelFor);
+      const frame = framePathForDoc(ownDoc(first), cachedFrames);
+      const framePart = frame === "main" ? "" : `  frame: ${frame}`;
+      const scope = checkboxGroupScope(group, cachedFrames);
+      const kind = checkboxGroupKind(group);
+      report.controls.checkbox_groups.push({
+        question: truncate(question || "", 240),
+        frame,
+        scope,
+        section: sectionFor(first),
+        group_kind: kind,
+        exclusive_likely: kind === "exclusive_choice_likely",
+        required: group.boxes.some(checkbox => requiredInfo(checkbox).required),
+        action_hint: kind === "exclusive_choice_likely" ? "pick" : "check",
+        options: group.boxes.map(checkbox => elementRecord(checkbox, cachedFrames, {
+          option_label: truncate(labelFor(checkbox), 180),
+          option_value: attr(checkbox, "value")
+        }))
+      });
+      log(`  [${i + 1}] ${kind}${question ? `  question="${truncate(question)}"` : ""}${framePart}`);
+      if (scope) log(`       scope: ${scope}`);
+      log(`       options: ${formatOptions(options)}`);
+    });
+    log("");
+  }
+
   const checkboxes = queryAllDocs(cachedFrames, "input[type=checkbox]").filter(isVisible);
   if (checkboxes.length) {
     section("-- CHECKBOXES -------------------------------------------------------");
@@ -1207,7 +1670,11 @@
       const frame = framePathForDoc(ownDoc(widget), cachedFrames);
       const framePart = frame === "main" ? "" : `  frame: ${frame}`;
       report.controls.custom_widgets.push(elementRecord(widget, cachedFrames, {
-        options: probe.options.map(text => ({ text: truncate(text, 160) })),
+        options: probe.options.map((text, index) => ({
+          index,
+          text: truncate(text, 160),
+          normalized_text: norm(text)
+        })),
         option_source: probe.source || "",
         action_hint: "press",
         recommended: "press with value '<option text>, Enter' or '<option text>, Tab'"
@@ -1303,10 +1770,12 @@
   }
 
   report.authoring_notes = [
-    "Native <select> fields can use select: with exact option text.",
+    "Native <select> fields can use select: with canonical applicant values; deterministic equivalences and salary ranges are resolved at runtime.",
     "Custom dropdowns usually need press: with the selector, option text, then Enter/Tab.",
     "File inputs can use upload: directly, even when hidden.",
-    "Radio/checkbox groups include a scope candidate for pick: steps.",
+    "Radio groups and exclusive checkbox choice groups include scope candidates for pick: steps.",
+    "Hidden controls are informational only unless they were discovered behind a recorded trigger.",
+    "Visible validation messages are captured separately; fix the relevant earlier step rather than drafting steps against an error page.",
     "Rerun extractor after manually picking each Yes/Other/Add conditional path if needed.",
     "Never enable final submit until a human has reviewed the filled application."
   ];
@@ -1322,12 +1791,14 @@
     datalist_inputs: report.controls.datalist_inputs.length,
     file_uploads: report.controls.file_uploads.length,
     radio_groups: report.controls.radio_groups.length,
+    checkbox_groups: report.controls.checkbox_groups.length,
     checkboxes: report.controls.checkboxes.length,
     custom_widgets: report.controls.custom_widgets.length,
     hidden_controls: report.controls.hidden_controls.length,
     modal_findings: report.findings.modal_fields.length,
     conditional_findings: report.findings.conditional_fields.length,
-    visible_dialogs: report.findings.visible_dialogs.length
+    visible_dialogs: report.findings.visible_dialogs.length,
+    validation_messages: report.findings.validation_messages.length
   };
 
   if (CONFIG.includeMachineJson) {
@@ -1340,16 +1811,14 @@
 
   const output = lines.join("\n");
   window.__PLAYBOOK_EXTRACTOR_RESULT__ = report;
+  window.__PLAYBOOK_EXTRACTOR_OUTPUT__ = output;
   console.log(output);
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(output);
-      console.log("\nOutput copied to clipboard - paste it to Codex.");
-    } catch (_err) {
-      console.log("\nClipboard copy failed - select the output above manually.");
-    }
+  const copyResult = await copyTextToClipboard(output);
+  if (copyResult.ok) {
+    console.log(`\nOutput copied to clipboard via ${copyResult.method} - paste it to Codex.`);
   } else {
-    console.log("\nSelect the output above and copy it manually.");
+    console.log("\nAutomatic clipboard copy failed. A copy panel was added to the page.");
+    console.log("You can also run: copy(window.__PLAYBOOK_EXTRACTOR_OUTPUT__)");
   }
 })();

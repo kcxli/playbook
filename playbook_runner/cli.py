@@ -4,19 +4,22 @@ Drives a .playbook against a live form with Playwright::
 
     python -m playbook_runner playbooks/uthealth.playbook.yaml -d applicants/test.json
 
-To draft a NEW playbook, use ``tools/form-extractor.js`` (paste it into the
-DevTools console on the application page and hand its output to Claude).
+To draft a NEW playbook, use ``tools/form-extractor.js`` as the live form
+evidence, then write/review the YAML playbook directly.
 """
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+import json
+from pathlib import Path
 import sys
 
 from .context import DataError, load_context
 from .dryrun import analyze
-from .ai_recovery import AIRecovery
 from .engine import Engine, StepError
 from .parser import PlaybookError, load_playbook
+from .template import render_text
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,14 +28,15 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Run a .playbook file against an application form with Playwright.\n\n"
             "To draft a NEW playbook, paste tools/form-extractor.js into the\n"
-            "DevTools console on the form page and hand its output to Claude."
+            "DevTools console on the form page, then use that output as\n"
+            "evidence while writing/reviewing the playbook."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("playbook", help="path to the .playbook (YAML) file")
     p.add_argument(
         "-d", "--data", action="append", default=[], metavar="FILE",
-        help="applicant profile JSON (repeatable; later files override earlier)",
+        help="applicant profile JSON (repeatable; later files recursively merge into earlier)",
     )
     p.add_argument("--dry-run", action="store_true",
                    help="resolve templates/conditions and print the plan; no browser")
@@ -49,14 +53,6 @@ def build_parser() -> argparse.ArgumentParser:
                    help="default per-action timeout in milliseconds (default 15000)")
     p.add_argument("--screenshot-dir", metavar="DIR",
                    help="directory to save a screenshot when a step fails")
-    p.add_argument("--ai-recover", action="store_true",
-                   help="ask an OpenAI model for a bounded recovery plan when a non-optional step fails")
-    p.add_argument("--ai-recover-model", metavar="MODEL",
-                   help="OpenAI model for --ai-recover (default: PLAYBOOK_AI_MODEL or gpt-5.4-mini)")
-    p.add_argument("--ai-recover-attempts", type=int, default=1, metavar="N",
-                   help="maximum AI recovery attempts per failed step (default 1)")
-    p.add_argument("--ai-recover-min-confidence", type=float, default=0.55, metavar="FLOAT",
-                   help="minimum confidence accepted from AI recovery plans (default 0.55)")
     return p
 
 
@@ -75,7 +71,8 @@ def _run(argv: list[str]) -> int:
         return 2
 
     try:
-        context = load_context(args.data)
+        application_key = playbook.application_key or playbook.job_id
+        context = load_context(args.data, application_key=application_key)
     except DataError as exc:
         print(f"data error: {exc}", file=sys.stderr)
         return 2
@@ -92,14 +89,12 @@ def _run(argv: list[str]) -> int:
         return 0
 
     try:
-        ai_recovery = None
-        if args.ai_recover:
-            ai_recovery = AIRecovery.from_env(
-                model=args.ai_recover_model,
-                max_attempts=max(1, args.ai_recover_attempts),
-                min_confidence=args.ai_recover_min_confidence,
-                log=print,
-            )
+        generated_artifact = _record_generated_values(args.playbook, playbook, context)
+    except DataError as exc:
+        print(f"data error: {exc}", file=sys.stderr)
+        return 2
+
+    try:
         with Engine(
             context,
             headless=args.headless,
@@ -107,7 +102,6 @@ def _run(argv: list[str]) -> int:
             default_timeout=args.timeout,
             screenshot_dir=args.screenshot_dir,
             pace=args.pace,
-            ai_recovery=ai_recovery,
         ) as engine:
             engine.run(playbook)
     except StepError as exc:
@@ -118,7 +112,45 @@ def _run(argv: list[str]) -> int:
         return 1
 
     print("\n✓ playbook completed")
+    if generated_artifact:
+        print(f"generated values recorded in {generated_artifact}")
     return 0
+
+
+def _record_generated_values(playbook_path: str, playbook, context: dict) -> Path | None:
+    items = playbook.raw.get("generated_values") or []
+    if not items:
+        return None
+    if not isinstance(items, list):
+        raise DataError("playbook generated_values must be a list")
+
+    rendered = []
+    for index, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            raise DataError(f"generated_values item #{index} must be a mapping")
+        key = item.get("key")
+        value = item.get("value")
+        if not key or value is None:
+            raise DataError(f"generated_values item #{index} requires key and value")
+        rendered.append({
+            "key": str(key),
+            "value": render_text(value, context),
+            "label": str(item.get("label") or ""),
+        })
+
+    out = Path(".run") / "generated-values.jsonl"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "recorded_at": datetime.now().isoformat(timespec="seconds"),
+        "playbook": str(playbook_path),
+        "name": playbook.name,
+        "job_id": playbook.job_id,
+        "employer_key": playbook.application_key,
+        "values": rendered,
+    }
+    with out.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=True) + "\n")
+    return out
 
 
 if __name__ == "__main__":

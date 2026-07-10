@@ -77,7 +77,7 @@
       },
       "citizenship_country": "",
       "work_authorization_country": "",
-      "requires_visa_sponsorship": false,
+      "requires_visa_sponsorship": null,
       "visa_status": {
         "type": "",
         "expiration_date": "",
@@ -192,12 +192,36 @@
     "salary_expectation": {
       "currency": "USD",
       "amount_min": null,
+      "amount_target": null,
       "amount_max": null,
-      "period": "annual"
+      "period": "annual",
+      "negotiable": true
     },
     "willing_to_relocate": false,
     "willing_to_travel_percent": 0
   },
+  "application_defaults": {
+    "authorized_to_work_us": null,
+    "requires_visa_sponsorship": null,
+    "desired_salary": "",
+    "salary_period": "annual",
+    "referral_source": "Job Board",
+    "specific_referral_source": "",
+    "employee_referral": false,
+    "employee_referrer_name": "",
+    "employee_referrer_relationship": "",
+    "previously_employed_by_employer": false,
+    "previously_employed_by_employer_details": "",
+    "previous_employer_employee_id": "",
+    "related_to_employer_employee": false,
+    "related_to_employer_employee_details": "",
+    "has_conflict_of_interest": false,
+    "has_conflict_of_interest_details": "",
+    "claims_veterans_preference": false,
+    "excluded_from_government_program": false,
+    "excluded_from_government_program_details": "N/A"
+  },
+  "application_exceptions": {},
   "work_history": [
     {
       "company": "",
@@ -231,6 +255,13 @@
   "documents": {
     "resume_path_or_url": "",
     "cover_letter_path_or_url": "",
+    "research_statement_path": "",
+    "teaching_statement_path": "",
+    "writing_sample_path": "",
+    "teaching_evaluations_path": "",
+    "syllabus_path": "",
+    "references_path": "",
+    "additional_attachment_path": "",
     "portfolio_url": "",
     "linkedin_url": "",
     "github_url": "",
@@ -261,6 +292,13 @@
       "emails.personal_email",
       "employment_basics.job_title_applied_for",
       "employment_basics.availability_to_start",
+      "application_defaults.authorized_to_work_us",
+      "application_defaults.requires_visa_sponsorship",
+      "application_defaults.referral_source",
+      "application_defaults.previously_employed_by_employer",
+      "application_defaults.related_to_employer_employee",
+      "application_defaults.has_conflict_of_interest",
+      "documents.resume_path_or_url",
       "work_history"
     ],
     "block_submit_if_missing_required": true

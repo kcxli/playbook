@@ -16,6 +16,7 @@ existing one and editing visible labels — no programming required.
 version: 1                       # optional, must be 1 if present
 name: "UTHealth Taleo Application"
 job_id: "260000AU"               # optional, informational
+employer_key: "uthealth"         # stable key for application-specific answers
 url: "https://.../jobapply.ftl?job=260000AU"   # opened automatically first
 
 steps:
@@ -25,6 +26,25 @@ steps:
 
 `url` (if given) is opened before the first step unless your steps already
 begin with an explicit `open:`.
+
+Use `employer_key` for the stable employer/platform key, such as `umn`, `uci`,
+or `nyulangone`. The runner uses it to choose application-specific answer
+exceptions from the applicant data.
+
+Use `generated_values` for account values the applicant should not pre-answer,
+such as made-up site usernames. These values are rendered once per run and
+recorded locally in `.run/generated-values.jsonl`, which is gitignored:
+
+```yaml
+generated_values:
+  - key: account.utah_user_name
+    label: "Utah username"
+    value: "ut{{ builtins.short_unique }}"
+```
+
+Reference the same generated template in the step that fills the field. Keep
+site rules, such as maximum length or allowed characters, in the generated
+template.
 
 ---
 
@@ -46,11 +66,11 @@ modifiers. The available verbs:
 | `scroll` | label, or `top`/`bottom` | Scroll an element into view, or the page to an edge |
 | `hover`  | label | Move the pointer over an element (reveals hover menus) |
 | `press`  | (description) | Send keystrokes / typeahead to a widget (needs `value:`) |
+| `search_dialog` | (description) | Drive a PageUp `SearchDialog.aspx` popup lookup (needs `value:`) |
 | `script` | (description) | Run a snippet of JavaScript on the page (needs `value:`) |
 | `sleep`  | seconds | Wait a fixed time (prefer `wait_for`; use only as a last resort) |
 | `await_email_link` | (mapping) | Read a just-arrived email over IMAP and follow the link inside it — see below |
 | `await_email_code` | (mapping) | Read a just-arrived email over IMAP, extract a verification code, and fill it |
-| `ai_fill_page` | (mapping) | Ask the bounded AI copilot to interpret and fill the current visible page from profile data |
 
 ### Examples
 
@@ -76,6 +96,65 @@ name** (label text, button text, placeholder). It does not need to be exact —
 matching is case-insensitive substring by default. Add `exact: true` to require
 an exact match.
 
+### Dropdown/radio option equivalences
+
+For `select`, `check`, and `pick`, the runner first tries the exact value you
+provided. If the live form uses a common equivalent, the runner can choose that
+option deterministically without AI. This keeps applicant data and playbooks
+canonical while tolerating site-specific labels:
+
+```yaml
+- select: "State/Province"
+  value: "TX"          # matches "Texas" on forms that spell it out
+
+- select: "Gender"
+  value: "M"           # matches "Male" only in gender/sex fields
+
+- select: "Country"
+  value: "US"          # matches "United States" / "United States of America"
+```
+
+The built-in equivalence sets cover common application-form values: yes/no,
+decline/prefer-not-to-answer wording, gender abbreviations, degree labels,
+phone-number types, race/ethnicity labels,
+disability/veteran wording, work authorization, visa sponsorship, referral
+sources, employment/education status, salary periods, salary ranges, US states,
+Canadian provinces, and common country names. Capitalization, accents, whitespace, and
+punctuation do not matter for equivalence matching: `u.s.a.`, `U S A`, and
+`USA` are treated alike. Abbreviation-heavy groups are context-aware: `M` means
+`Male` in a `Gender` field, but not in an unrelated dropdown. If an option is
+missing rather than merely worded differently, the runner fails instead of
+inventing a fallback.
+
+When the wording is a reusable synonym, add it once to
+`information/custom_equivalences.json` instead of patching one playbook. New
+playbook test runs should use `--screenshot-dir`; a failed option match writes
+`equivalence-gap.json` with the desired value, field context, and live options.
+After confirming the correct candidate, promote it:
+
+```bash
+python3 tools/accept_equivalence_gap.py \
+  shots/<site>/error-step-###/equivalence-gap.json \
+  --group referral \
+  --candidate-index 3
+```
+
+Use playbook/site data only when the answer itself is truly site-specific, not
+when the site merely phrases the same answer differently.
+
+For salary dropdowns, keep the playbook value as the applicant's numeric salary:
+
+```yaml
+- select: "Desired Salary"
+  value: "{{ app_answers.desired_salary }}"  # e.g. "82000"
+```
+
+If the live dropdown exposes ranges such as `$60,000 - $79,999`,
+`$80k-$99k`, `At least $100,000`, or `Under $50,000`, the runner parses those
+ranges and selects the range containing the applicant's salary. If no range
+contains the salary, it only selects the nearest boundary when it is close;
+otherwise it fails rather than inventing an answer.
+
 ---
 
 ## Templating: `{{ ... }}`
@@ -96,6 +175,11 @@ value: "{{ builtins.today }}"     # runner-supplied date, MM/DD/YYYY
 
 Runner-supplied `builtins`: `today` (MM/DD/YYYY), `today_iso`, `year`,
 `timestamp`, `unique` (a fresh per-run stamp), `run_id` (alias of `unique`).
+
+When multiple `-d/--data` JSON files are passed, later files recursively merge
+into earlier ones. For dictionaries, only the specified nested keys are
+overridden; for lists and scalar values, the later value replaces the earlier
+value.
 
 ### Self-refreshing data
 
@@ -118,6 +202,73 @@ single pass, so don't chain a token through another templated field.
 
 ---
 
+## Generated `app_answers`
+
+Playbooks should prefer canonical applicant paths for facts with a stable home:
+
+```yaml
+value: "{{ person_name.legal_name.first }}"
+value: "{{ education.schools.0.institution }}"
+value: "{{ documents.resume_path_or_url }}"
+```
+
+For reusable application-question answers, use `app_answers.*`:
+
+```yaml
+value: "{{ app_answers.referral_source }}"
+source: app_answers.authorized_to_work_us
+source: app_answers.requires_visa_sponsorship
+value: "{{ app_answers.desired_salary }}"
+```
+
+`app_answers` is generated at load time. It merges, from weakest to strongest:
+
+1. obvious facts derived from the structured profile, such as primary school,
+   degree, major, current title, work authorization, and salary expectation;
+2. legacy `answers.*` values, so older profiles keep working;
+3. reusable default buckets such as `application_defaults`;
+4. current employer exceptions from `application_exceptions`,
+   `employer_exceptions`, or `site_exceptions`, keyed by `employer_key`.
+
+Example profile snippet:
+
+```json
+{
+  "application_defaults": {
+    "authorized_to_work_us": true,
+    "requires_visa_sponsorship": false,
+    "desired_salary": "82000",
+    "salary_period": "annual",
+    "referral_source": "Job Board",
+    "specific_referral_source": "",
+    "employee_referral": false,
+    "previously_employed_by_employer": false,
+    "related_to_employer_employee": false,
+    "has_conflict_of_interest": false
+  },
+  "application_exceptions": {
+    "umn": {
+      "referral_source": "HERC - Higher Education Recruitment Consortium",
+      "specific_referral_source": "HERC statistics faculty mailing list"
+    },
+    "nyulangone": {
+      "previously_employed_by_employer": true,
+      "previously_employed_by_employer_details": "Research collaboration appointment, June 2022 to August 2022"
+    }
+  }
+}
+```
+
+Keep platform-only fields under `answers.*` with a prefix when they have no
+portable meaning, such as `answers.ua_referral_source`,
+`answers.nyulangone_degree`, or `answers.cuhk_publication_type`.
+
+Do not put legally sensitive or financial one-off answers, such as felony
+disclosures, SSNs, government IDs, banking, or payment fields, in general
+defaults. Add them only when a specific playbook requires them.
+
+---
+
 ## `pick`: choose an answer from a data value
 
 Many forms ask Yes/No or tri-state questions driven by a single value in the
@@ -129,13 +280,13 @@ chain of conditionals.
 - pick:
     field: "Will you require visa sponsorship?"     # the dropdown's label
     as: select
-    source: detailed_personal_info.birth_and_citizenship.requires_visa_sponsorship
+    source: app_answers.requires_visa_sponsorship
     map: { true: "Yes", false: "No" }
 
 # Checkbox / radio group form (tri-state with a fallback):
 - pick:
     group: "5. F. I identify as a Veteran:"         # the question/fieldset text
-    source: answers.is_veteran
+    source: app_answers.is_veteran
     map: { true: "Yes", false: "No" }
     default: "I do not wish to provide this information"   # used if no key matches
 ```
@@ -148,53 +299,6 @@ chain of conditionals.
 - `as:` is `select` (requires `field:`) or `check` (uses `group:` to scope which
   set of options, optional). It defaults to `check` when `group:` is present,
   otherwise `select`.
-
----
-
-## AI page copilot: `ai_fill_page`
-
-`ai_fill_page` is for pages where a browser-extension-style assistant is more
-useful than hand-written selectors. The runner captures the current page
-snapshot, selected applicant-profile values, visible dialogs/validation errors,
-and iframe controls, then asks the AI for a short list of ordinary playbook
-actions. It still executes only normal runner verbs and blocks CAPTCHA,
-payment/SSN/banking, and final-submit-like actions.
-
-```yaml
-- wait_for: "First name"
-
-- ai_fill_page:
-    allowed_sources:
-      - person_name
-      - emails
-      - address_and_contact
-      - education
-      - work_history
-      - answers
-      - documents
-    max_actions: 12
-    instructions: "Fill the visible profile page only. Stop before any Next or Submit button."
-```
-
-Run with `--ai-recover`; the same model configuration powers failed-step
-recovery and page copilot actions:
-
-```bash
-export OPENAI_API_KEY="..."
-.venv/bin/python -m playbook_runner playbooks/example.playbook.yaml \
-  -d applicants/test_stats_rao.json --ai-recover --screenshot-dir ./shots/example
-```
-
-Useful config keys:
-
-| Key | Meaning |
-|-----|---------|
-| `allowed_sources` | Data namespaces or dotted paths the model may use. Defaults to common profile sections. |
-| `max_actions` | Maximum actions returned by this one AI step, 1-30, default 12. |
-| `min_confidence` | Override the CLI confidence threshold for this step. |
-| `instructions` | Human guidance for the current page or section. |
-
----
 
 ## Timing verbs: `wait_for`, `scroll`, `hover`
 
@@ -281,9 +385,9 @@ Credentials and freshness rules are the same as `await_email_link`. If
 `selector:` is provided on the step, it fills that control; otherwise it locates
 the control by `field:`.
 
-## Custom-widget verbs: `press`, `script`
+## Custom-widget verbs: `press`, `search_dialog`, `script`
 
-Most controls are reachable with the verbs above. Two escape hatches handle the
+Most controls are reachable with the verbs above. These escape hatches handle the
 widgets that aren't (custom dropdowns with no real `<option>`s, stuck overlays):
 
 ```yaml
@@ -296,6 +400,14 @@ widgets that aren't (custom dropdowns with no real `<option>`s, stuck overlays):
   selector: "#state"
   value: "{{ answers.interfolio_state }}, Enter"
 
+# search_dialog: after a PageUp search button opens SearchDialog.aspx, fill the
+# popup search box, select the best matching result, click Select, and return to
+# the opener page.
+- click: "Institution search button"
+  selector: "xpath=//*[normalize-space()='Institution:*']/following::*[self::a or self::button or (self::input and (@type='button' or @type='image'))][1]"
+- search_dialog: "Institution"
+  value: "{{ app_answers.school }}"
+
 # script: run a small piece of JavaScript on the page. Use sparingly — e.g. to
 # dismiss an overlay that intercepts clicks:
 - script: "Dismiss state overlay"   # description for logs only
@@ -304,8 +416,9 @@ widgets that aren't (custom dropdowns with no real `<option>`s, stuck overlays):
     if (b) { b.click(); }
 ```
 
-For `press` and `script` the action argument is just a human-readable label for
-the logs; the real work is in `value` (and, for `press`, the `selector:`).
+For `press`, `search_dialog`, and `script` the action argument is just a
+human-readable label for the logs; the real work is in `value` (and, for
+`press`, the `selector:`).
 
 ---
 
@@ -316,7 +429,7 @@ Add `when:` to any step to run it only if a condition holds:
 ```yaml
 - fill: "Visa Type"
   value: "{{ detailed_personal_info.birth_and_citizenship.visa_status.type }}"
-  when: "detailed_personal_info.birth_and_citizenship.requires_visa_sponsorship == true"
+  when: "app_answers.requires_visa_sponsorship == true"
 
 - click: "Add another reference"
   when: 'answers.county != null and answers.county != ""'
@@ -422,29 +535,22 @@ form-specific choices whose text must match the page's options exactly).
 
 1. **Extract the form** — open the page, open the DevTools console, and paste in
    [tools/form-extractor.js](tools/form-extractor.js). It prints every field's
-   label, stable selector, and options, followed by a
-   `PLAYBOOK_EXTRACT_JSON_START` / `PLAYBOOK_EXTRACT_JSON_END` block. Save the
-   full output for the draft generator, or hand it to Claude/Codex to draft a
-   playbook. Or start from an existing playbook: copy it and edit `url` /
-   labels.
-2. **Generate the first draft** when you have extractor output:
-   ```
-   python3 tools/draft_playbook.py \
-     --collect \
-     --name "Site Application" \
-     --url "https://..." \
-     --job-id "..." \
-     --out playbooks/site.playbook.yaml
-   ```
-   Paste each page's full extractor output into that one running command. The
-   generator saves each completed paste when it sees
-   `PLAYBOOK_EXTRACT_JSON_END`, appends it to one combined capture file, and
-   regenerates the same draft playbook. Press `Ctrl-D` only after the last
-   page/state. Wait to hand-edit the generated playbook until the capture pass
-   is done. The generator writes conservative field steps and comments out
-   navigation/submit-like buttons until a human enables them.
-3. **Finish the draft**: resolve the `# TODO` fields, set dropdown `value:`s to
-   the exact option text (listed in comments), and complete any `pick` skeletons.
+   label, stable selector, options, data-path hints, review flags, visible
+   validation errors, radio groups, likely exclusive checkbox groups, and
+   conditional/modal discoveries, followed by a `PLAYBOOK_EXTRACT_JSON_START` /
+   `PLAYBOOK_EXTRACT_JSON_END` block. Save the full output as evidence, or hand
+   it to Claude/Codex with
+   [docs/ai-playbook-drafting-context.md](docs/ai-playbook-drafting-context.md)
+   to draft a playbook. Or start from an existing playbook: copy it and edit
+   `url` / labels.
+2. **Write or review the YAML directly**. Prefer copying a similar existing
+   playbook, then use the extractor output to confirm selectors, option text,
+   custom widgets, hidden fields, and validation messages. The old
+   paste-extractor-output-into-terminal drafter is archived under
+   `past_attempts/`; it is not the current workflow.
+3. **Finish the draft**: resolve every `TODO`, use canonical profile paths for
+   applicant facts, use `app_answers.*` for reusable application answers, and
+   complete any `pick` mappings.
 4. **Validate** that every `{{ }}` resolves, files exist, and `pick`/`when` behave:
    ```
    python -m playbook_runner playbooks/new.playbook.yaml -d applicants/jane.json --validate
@@ -454,5 +560,9 @@ form-specific choices whose text must match the page's options exactly).
    `sleep` for any timing issues you hit.
 6. Add `--screenshot-dir ./shots/<site>` so a failing step captures a targeted
    artifact bundle like `shots/<site>/error-step-048/`. Share that one folder
-   (`screenshot.png`, `page.html`, `failure.txt`) when asking Codex to debug;
-   avoid sending the whole historical `shots/` directory.
+   (`screenshot.png`, `page.html`, `failure.txt`, and sometimes
+   `equivalence-gap.json`) when asking Codex to debug; avoid sending the whole
+   historical `shots/` directory.
+7. If a missing option equivalence caused the failure, run
+   `tools/accept_equivalence_gap.py` against `equivalence-gap.json`, rerun unit
+   tests, and validate the playbook again.

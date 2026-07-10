@@ -1,0 +1,508 @@
+version: 1
+name: "University of Utah - Mid-Career Faculty, Biostatistics"
+job_id: "PRN04075F"
+employer_key: "utah"
+url: "https://utah.peopleadmin.com/postings/204175"
+
+generated_values:
+  - key: account.utah_user_name
+    label: "Utah username"
+    value: "ut{{ builtins.short_unique }}"
+  - key: account.utah_password
+    label: "Utah password"
+    value: "Pw{{ builtins.short_unique }}"
+  - key: account.utah_email
+    label: "Utah email"
+    value: "{{ account.generated_email }}"
+
+steps:
+  # Apply and create account
+  - click: "Apply for this Job"
+    wait_after: 2
+  - click: "Create an Account"
+    wait_after: 2
+
+  # Complete CAPTCHA manually.
+  - wait_for: "Create Account"
+    timeout: 300000
+
+  # Create account
+  - upload: "Resume"
+    selector: "#resume"
+    value: "{{ documents.resume_path_or_url }}"
+  - fill: "Chosen First Name"
+    selector: "#user_applicant_detail_attributes_other_name"
+    value: "{{ person_name.preferred_name.preferred_first }}"
+    optional: true
+    when: 'person_name.preferred_name.preferred_first != "" and person_name.preferred_name.preferred_first != null'
+  - fill: "First Name"
+    selector: "#user_first_name"
+    value: "{{ person_name.legal_name.first }}"
+  - fill: "Last Name"
+    selector: "#user_last_name"
+    value: "{{ person_name.legal_name.last }}"
+  - select: "Pronouns"
+    selector: "#user_lookup_salutation_id"
+    value: "{{ identity_and_status.pronouns.set }}"
+    optional: true
+    when: 'identity_and_status.pronouns.set != "" and identity_and_status.pronouns.set != null'
+  - fill: "Username"
+    selector: "#user_username"
+    value: "ut{{ builtins.short_unique }}"
+  - fill: "Password"
+    selector: "#user_password"
+    value: "Pw{{ builtins.short_unique }}"
+  - fill: "Password Confirmation"
+    selector: "#user_password_confirmation"
+    value: "Pw{{ builtins.short_unique }}"
+  - fill: "Email"
+    selector: "#user_applicant_detail_attributes_email"
+    value: "{{ account.generated_email }}"
+  - fill: "Email Confirmation"
+    selector: "#user_applicant_detail_attributes_email_confirmation"
+    value: "{{ account.generated_email }}"
+  - fill: "Address 1"
+    selector: "#user_applicant_detail_attributes_address1"
+    value: "{{ address_and_contact.primary_address.line_1 }}"
+    optional: true
+    when: 'address_and_contact.primary_address.line_1 != "" and address_and_contact.primary_address.line_1 != null'
+  - fill: "Address 2"
+    selector: "#user_applicant_detail_attributes_address2"
+    value: "{{ address_and_contact.primary_address.line_2 }}"
+    optional: true
+    when: 'address_and_contact.primary_address.line_2 != "" and address_and_contact.primary_address.line_2 != null'
+  - fill: "City"
+    selector: "#user_applicant_detail_attributes_city"
+    value: "{{ address_and_contact.primary_address.city }}"
+    optional: true
+    when: 'address_and_contact.primary_address.city != "" and address_and_contact.primary_address.city != null'
+  - select: "State"
+    selector: "#user_applicant_detail_attributes_lookup_state_id"
+    value: "{{ address_and_contact.primary_address.state_province }}"
+    optional: true
+    when: 'address_and_contact.primary_address.state_province != "" and address_and_contact.primary_address.state_province != null'
+  - fill: "Postal Code"
+    selector: "#user_applicant_detail_attributes_postal_code"
+    value: "{{ address_and_contact.primary_address.postal_code }}"
+    optional: true
+    when: 'address_and_contact.primary_address.postal_code != "" and address_and_contact.primary_address.postal_code != null'
+  - select: "Country"
+    selector: "#user_applicant_detail_attributes_lookup_country_id"
+    value: "{{ address_and_contact.primary_address.country }}"
+    optional: true
+    when: 'address_and_contact.primary_address.country != "" and address_and_contact.primary_address.country != null'
+  - fill: "Phone Number"
+    selector: "#user_personal_contact_info_attributes_primary_phone"
+    value: "{{ address_and_contact.phone_numbers.mobile }}"
+    optional: true
+    when: 'address_and_contact.phone_numbers.mobile != "" and address_and_contact.phone_numbers.mobile != null'
+  - click: "Create account"
+    selector: "#internal-create-btn"
+    wait_after: 3
+
+  # Start application
+  - click: "Apply for this Job"
+    selector: 'form.apply-to-job-form input[type="submit"][value="Apply for this Job"]'
+    wait_after: 3
+
+  # Personal Information
+  - fill: "Name Prefix"
+    selector: "#submission_applicant_detail_attributes_custom_string_one"
+    value: "{{ person_name.legal_name.prefix }}"
+    optional: true
+    when: 'person_name.legal_name.prefix != "" and person_name.legal_name.prefix != null'
+  - fill: "Chosen First Name"
+    selector: "#submission_applicant_detail_attributes_other_name"
+    value: "{{ person_name.preferred_name.preferred_first }}"
+    optional: true
+    when: 'person_name.preferred_name.preferred_first != "" and person_name.preferred_name.preferred_first != null'
+  - fill: "Middle Name"
+    selector: "#submission_applicant_detail_attributes_user_attributes_middle_name"
+    value: "{{ person_name.legal_name.middle }}"
+    optional: true
+    when: 'person_name.legal_name.middle != "" and person_name.legal_name.middle != null'
+  - fill: "Suffix"
+    selector: "#submission_applicant_detail_attributes_user_attributes_suffix"
+    value: "{{ person_name.legal_name.suffix }}"
+    optional: true
+    when: 'person_name.legal_name.suffix != "" and person_name.legal_name.suffix != null'
+  - select: "Country"
+    selector: "#submission_applicant_detail_attributes_lookup_country_id"
+    value: "{{ address_and_contact.primary_address.country }}"
+  - fill: "Address 1"
+    selector: "#submission_applicant_detail_attributes_address1"
+    value: "{{ address_and_contact.primary_address.line_1 }}"
+  - fill: "Address 2"
+    selector: "#submission_applicant_detail_attributes_address2"
+    value: "{{ address_and_contact.primary_address.line_2 }}"
+    optional: true
+    when: 'address_and_contact.primary_address.line_2 != "" and address_and_contact.primary_address.line_2 != null'
+  - fill: "City"
+    selector: "#submission_applicant_detail_attributes_city"
+    value: "{{ address_and_contact.primary_address.city }}"
+  - select: "State"
+    selector: "#submission_applicant_detail_attributes_lookup_state_id"
+    value: "{{ address_and_contact.primary_address.state_province }}"
+    when: 'address_and_contact.primary_address.country == "United States" or address_and_contact.primary_address.country == "Canada"'
+  - select: "State"
+    selector: "#submission_applicant_detail_attributes_lookup_state_id"
+    value: "Not Applicable (Int'l Candidate)"
+    when: 'address_and_contact.primary_address.country != "United States" and address_and_contact.primary_address.country != "Canada"'
+  - fill: "Postal Code"
+    selector: "#submission_applicant_detail_attributes_postal_code"
+    value: "{{ address_and_contact.primary_address.postal_code }}"
+    when: 'address_and_contact.primary_address.country == "United States" or address_and_contact.primary_address.country == "Canada"'
+  - fill: "Postal Code"
+    selector: "#submission_applicant_detail_attributes_postal_code"
+    value: "N/A"
+    when: 'address_and_contact.primary_address.country != "United States" and address_and_contact.primary_address.country != "Canada"'
+  - fill: "Primary Phone"
+    selector: "#submission_applicant_detail_attributes_primary_phone"
+    value: "{{ address_and_contact.phone_numbers.mobile }}"
+    optional: true
+    when: 'address_and_contact.phone_numbers.mobile != "" and address_and_contact.phone_numbers.mobile != null'
+  - fill: "Secondary Phone"
+    selector: "#submission_applicant_detail_attributes_secondary_phone"
+    value: "{{ address_and_contact.phone_numbers.home }}"
+    optional: true
+    when: 'address_and_contact.phone_numbers.home != "" and address_and_contact.phone_numbers.home != null'
+  - select: "Highest Degree"
+    selector: "#submission_applicant_detail_attributes_faculty_detail_attributes_lookup_highest_obtained_degree_id"
+    value: "{{ app_answers.highest_education }}"
+  - fill: "Highest Degree Granting Institution"
+    selector: "#submission_applicant_detail_attributes_faculty_detail_attributes_custom_string_one"
+    value: "{{ app_answers.school }}"
+  - select: "Veteran's Preference"
+    selector: "#submission_applicant_detail_attributes_has_veterans_preference"
+    value: "Yes"
+    optional: true
+    when: 'app_answers.claims_veterans_preference == true'
+  - select: "Veteran's Preference"
+    selector: "#submission_applicant_detail_attributes_has_veterans_preference"
+    value: "No"
+    optional: true
+    when: 'app_answers.claims_veterans_preference == false'
+  - pick:
+      field: "Government Program Exclusion"
+      as: select
+      source: app_answers.excluded_from_government_program
+      map: { true: "Yes", false: "No" }
+    selector: "#submission_applicant_detail_attributes_custom_boolean_one"
+  - fill: "Government Program Exclusion Details"
+    selector: "#submission_applicant_detail_attributes_custom_text_one"
+    value: "N/A"
+    when: "app_answers.excluded_from_government_program == false"
+  - fill: "Government Program Exclusion Details"
+    selector: "#submission_applicant_detail_attributes_custom_text_one"
+    value: "{{ app_answers.excluded_from_government_program_details }}"
+    when: "app_answers.excluded_from_government_program == true"
+  - click: "Save & Continue"
+    selector: "#next_commit_bottom"
+    wait_after: 3
+
+  # Documents needed to apply
+  - click: "Add Required Cover Letter"
+    wait_after: 2
+  - upload: "Cover Letter"
+    selector: "#document_file"
+    value: "{{ documents.cover_letter_path_or_url }}"
+    wait_after: 1
+  - click: "Add to my Application"
+    selector: 'input[type="submit"][value="Add to my Application"]'
+    wait_after: 3
+
+  - click: "Add Required Curriculum Vitae"
+    wait_after: 2
+  - upload: "Curriculum Vitae"
+    selector: "#document_file"
+    value: "{{ documents.resume_path_or_url }}"
+    wait_after: 1
+  - click: "Add to my Application"
+    selector: 'input[type="submit"][value="Add to my Application"]'
+    wait_after: 3
+
+  - click: "Add Required Research Statement"
+    wait_after: 2
+  - upload: "Research Statement"
+    selector: "#document_file"
+    value: "{{ documents.research_statement_path }}"
+    wait_after: 1
+  - click: "Add to my Application"
+    selector: 'input[type="submit"][value="Add to my Application"]'
+    wait_after: 3
+
+  - click: "Add Required Teaching Statement"
+    wait_after: 2
+  - upload: "Teaching Statement"
+    selector: "#document_file"
+    value: "{{ documents.teaching_statement_path }}"
+    wait_after: 1
+  - click: "Add to my Application"
+    selector: 'input[type="submit"][value="Add to my Application"]'
+    wait_after: 3
+
+  - click: "Add Required List of References"
+    wait_after: 2
+  - upload: "List of References"
+    selector: "#document_file"
+    value: "{{ documents.references_path }}"
+    wait_after: 1
+  - click: "Add to my Application"
+    selector: 'input[type="submit"][value="Add to my Application"]'
+    wait_after: 3
+
+  - click: "Add Required Writing Sample 1"
+    wait_after: 2
+  - upload: "Writing Sample 1"
+    selector: "#document_file"
+    value: "{{ documents.writing_sample_path }}"
+    wait_after: 1
+  - click: "Add to my Application"
+    selector: 'input[type="submit"][value="Add to my Application"]'
+    wait_after: 3
+  - click: "Save & Continue"
+    selector: "#next_commit_bottom"
+    wait_after: 3
+
+  # References
+  - click: "Add References Entry"
+    selector: 'input[type="submit"][value="Add References Entry"]'
+    wait_after: 2
+  - fill: "Reference Full Name"
+    selector: "#submission_reference_requests_attributes_0_name"
+    value: "{{ references.0.name }}"
+  - fill: "Reference Title"
+    selector: "#submission_reference_requests_attributes_0_custom_string_one"
+    value: "{{ references.0.title }}"
+    optional: true
+    when: 'references.0.title != "" and references.0.title != null'
+  - fill: "Reference Institution"
+    selector: "#submission_reference_requests_attributes_0_custom_string_two"
+    value: "{{ references.0.company }}"
+  - fill: "Reference Email"
+    selector: "#submission_reference_requests_attributes_0_email"
+    value: "{{ references.0.email }}"
+  - fill: "How You Know This Reference"
+    selector: "#submission_reference_requests_attributes_0_custom_text_one"
+    value: "{{ references.0.relationship }}"
+    optional: true
+    when: 'references.0.relationship != "" and references.0.relationship != null'
+  - click: "Add References Entry"
+    selector: 'input[type="submit"][value="Add References Entry"]'
+    wait_after: 2
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Reference Full Name"
+    selector: "#submission_reference_requests_attributes_1_name"
+    value: "{{ references.1.name }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Reference Title"
+    selector: "#submission_reference_requests_attributes_1_custom_string_one"
+    value: "{{ references.1.title }}"
+    optional: true
+    when: 'references.1.name != "" and references.1.name != null and references.1.title != "" and references.1.title != null'
+  - fill: "Reference Institution"
+    selector: "#submission_reference_requests_attributes_1_custom_string_two"
+    value: "{{ references.1.company }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Reference Email"
+    selector: "#submission_reference_requests_attributes_1_email"
+    value: "{{ references.1.email }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "How You Know This Reference"
+    selector: "#submission_reference_requests_attributes_1_custom_text_one"
+    value: "{{ references.1.relationship }}"
+    optional: true
+    when: 'references.1.name != "" and references.1.name != null and references.1.relationship != "" and references.1.relationship != null'
+  - click: "Add References Entry"
+    selector: 'input[type="submit"][value="Add References Entry"]'
+    wait_after: 2
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Reference Full Name"
+    selector: "#submission_reference_requests_attributes_2_name"
+    value: "{{ references.2.name }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Reference Title"
+    selector: "#submission_reference_requests_attributes_2_custom_string_one"
+    value: "{{ references.2.title }}"
+    optional: true
+    when: 'references.2.name != "" and references.2.name != null and references.2.title != "" and references.2.title != null'
+  - fill: "Reference Institution"
+    selector: "#submission_reference_requests_attributes_2_custom_string_two"
+    value: "{{ references.2.company }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Reference Email"
+    selector: "#submission_reference_requests_attributes_2_email"
+    value: "{{ references.2.email }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "How You Know This Reference"
+    selector: "#submission_reference_requests_attributes_2_custom_text_one"
+    value: "{{ references.2.relationship }}"
+    optional: true
+    when: 'references.2.name != "" and references.2.name != null and references.2.relationship != "" and references.2.relationship != null'
+  - click: "Add References Entry"
+    selector: 'input[type="submit"][value="Add References Entry"]'
+    wait_after: 2
+    when: 'references.3.name != "" and references.3.name != null'
+  - fill: "Reference Full Name"
+    selector: "#submission_reference_requests_attributes_3_name"
+    value: "{{ references.3.name }}"
+    when: 'references.3.name != "" and references.3.name != null'
+  - fill: "Reference Title"
+    selector: "#submission_reference_requests_attributes_3_custom_string_one"
+    value: "{{ references.3.title }}"
+    optional: true
+    when: 'references.3.name != "" and references.3.name != null and references.3.title != "" and references.3.title != null'
+  - fill: "Reference Institution"
+    selector: "#submission_reference_requests_attributes_3_custom_string_two"
+    value: "{{ references.3.company }}"
+    when: 'references.3.name != "" and references.3.name != null'
+  - fill: "Reference Email"
+    selector: "#submission_reference_requests_attributes_3_email"
+    value: "{{ references.3.email }}"
+    when: 'references.3.name != "" and references.3.name != null'
+  - fill: "How You Know This Reference"
+    selector: "#submission_reference_requests_attributes_3_custom_text_one"
+    value: "{{ references.3.relationship }}"
+    optional: true
+    when: 'references.3.name != "" and references.3.name != null and references.3.relationship != "" and references.3.relationship != null'
+  - click: "Add References Entry"
+    selector: 'input[type="submit"][value="Add References Entry"]'
+    wait_after: 2
+    when: 'references.4.name != "" and references.4.name != null'
+  - fill: "Reference Full Name"
+    selector: "#submission_reference_requests_attributes_4_name"
+    value: "{{ references.4.name }}"
+    when: 'references.4.name != "" and references.4.name != null'
+  - fill: "Reference Title"
+    selector: "#submission_reference_requests_attributes_4_custom_string_one"
+    value: "{{ references.4.title }}"
+    optional: true
+    when: 'references.4.name != "" and references.4.name != null and references.4.title != "" and references.4.title != null'
+  - fill: "Reference Institution"
+    selector: "#submission_reference_requests_attributes_4_custom_string_two"
+    value: "{{ references.4.company }}"
+    when: 'references.4.name != "" and references.4.name != null'
+  - fill: "Reference Email"
+    selector: "#submission_reference_requests_attributes_4_email"
+    value: "{{ references.4.email }}"
+    when: 'references.4.name != "" and references.4.name != null'
+  - fill: "How You Know This Reference"
+    selector: "#submission_reference_requests_attributes_4_custom_text_one"
+    value: "{{ references.4.relationship }}"
+    optional: true
+    when: 'references.4.name != "" and references.4.name != null and references.4.relationship != "" and references.4.relationship != null'
+  - click: "Save & Continue"
+    selector: "#next_commit_bottom"
+    wait_after: 3
+
+  # Disability self-identification
+  - fill: "Disability Full Name"
+    selector: "#submission_applicant_detail_attributes_custom1_attributes_custom_string_one"
+    value: "{{ person_name.legal_name.first }} {{ person_name.legal_name.last }}"
+    optional: true
+    when: 'detailed_personal_info.disability_status.value != "" and detailed_personal_info.disability_status.value != null'
+  - fill: "Disability Date"
+    selector: "#submission_applicant_detail_attributes_custom1_attributes_custom_date_one"
+    value: "{{ builtins.today }}"
+    optional: true
+    when: 'detailed_personal_info.disability_status.value != "" and detailed_personal_info.disability_status.value != null'
+  - fill: "Employee ID"
+    selector: "#submission_applicant_detail_attributes_drivers_license_attributes_custom_string_seven"
+    value: "{{ answers.utah_employee_id }}"
+    optional: true
+    when: 'answers.utah_employee_id != "" and answers.utah_employee_id != null'
+  - pick:
+      field: "Disability Status"
+      as: select
+      source: detailed_personal_info.disability_status.value
+      map:
+        yes: "Yes, I Have A Disability, Or Have A History/Record Of Having A Disability"
+        no: "No, I Don't Have A Disability, Or A History/Record Of Having A Disability"
+        decline: "I Don't Wish To Answer"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_lookup_disabled_status_id"
+    optional: true
+    when: 'detailed_personal_info.disability_status.value != "" and detailed_personal_info.disability_status.value != null'
+  - click: "Save & Continue"
+    selector: "#next_commit_bottom"
+    wait_after: 3
+
+  # Protected veteran self-identification
+  - pick:
+      field: "Protected Veteran Status"
+      as: select
+      source: detailed_personal_info.veteran_status.value
+      map:
+        yes: "I identify as one or more of the classifications of protected veteran status listed above"
+        no: "I am not a protected veteran"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_lookup_veteran_status_id"
+    optional: true
+    when: 'detailed_personal_info.veteran_status.value == "yes" or detailed_personal_info.veteran_status.value == "no"'
+  - fill: "Protected Veteran Full Name"
+    selector: "#submission_applicant_detail_attributes_custom1_attributes_custom_string_two"
+    value: "{{ person_name.legal_name.first }} {{ person_name.legal_name.last }}"
+    optional: true
+    when: 'detailed_personal_info.veteran_status.value == "yes" or detailed_personal_info.veteran_status.value == "no"'
+  - fill: "Protected Veteran Date"
+    selector: "#submission_applicant_detail_attributes_custom1_attributes_custom_date_two"
+    value: "{{ builtins.today }}"
+    optional: true
+    when: 'detailed_personal_info.veteran_status.value == "yes" or detailed_personal_info.veteran_status.value == "no"'
+  - click: "Save & Continue"
+    selector: "#next_commit_bottom"
+    wait_after: 3
+
+  # Demographic information
+  - select: "Gender"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_lookup_gender_id"
+    value: "{{ app_answers.gender }}"
+    optional: true
+    when: 'app_answers.gender == "Female" or app_answers.gender == "Male"'
+  - check: "American Indian or Alaska Native"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_eeo_race_selections_attributes_0_multiselect_id"
+    optional: true
+    when: '"American Indian or Alaska Native" in app_answers.race_ethnicity'
+  - check: "Asian"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_eeo_race_selections_attributes_1_multiselect_id"
+    optional: true
+    when: '"Asian" in app_answers.race_ethnicity'
+  - check: "Black or African American"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_eeo_race_selections_attributes_2_multiselect_id"
+    optional: true
+    when: '"Black or African American" in app_answers.race_ethnicity'
+  - check: "Native Hawaiian or Other Pacific Islander"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_eeo_race_selections_attributes_3_multiselect_id"
+    optional: true
+    when: '"Native Hawaiian or Other Pacific Islander" in app_answers.race_ethnicity'
+  - check: "White"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_eeo_race_selections_attributes_4_multiselect_id"
+    optional: true
+    when: '"White" in app_answers.race_ethnicity'
+  - pick:
+      field: "Hispanic/Latino"
+      as: select
+      source: app_answers.is_hispanic_or_latino
+      map: { "Yes": "Yes", "No": "No" }
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_eeo_hispanic_latino_status"
+    optional: true
+    when: 'app_answers.is_hispanic_or_latino == "Yes" or app_answers.is_hispanic_or_latino == "No"'
+  - select: "Citizenship Status"
+    selector: "#submission_applicant_detail_attributes_voluntary_demographics_attributes_lookup_citizenship_id"
+    value: "{{ detailed_personal_info.birth_and_citizenship.visa_status.type }}"
+    optional: true
+    when: 'detailed_personal_info.birth_and_citizenship.visa_status.type != "" and detailed_personal_info.birth_and_citizenship.visa_status.type != null'
+  - click: "Save & Continue"
+    selector: "#next_commit_bottom"
+    wait_after: 3
+
+  # Submit application
+  - click: "Certify and Submit"
+    selector: "#cert_and_submit"
+    wait_after: 3
+  - check: "Certified"
+    selector: "#certified"
+  - fill: "Digital Signature Initials"
+    selector: "#job_application_digital_signature"
+    value: "{{ builtins.legal_initials }}"
+
+  # - click: "Submit this Application"
+  #   selector: 'input[type="submit"][value="Submit this Application"]'
