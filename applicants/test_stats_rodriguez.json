@@ -151,7 +151,14 @@
     "employment_type_preference": ["full_time"],
     "work_location_preference": ["onsite", "hybrid"],
     "availability_to_start": "2026-08-15",
-    "salary_expectation": { "currency": "USD", "amount_min": 95000, "amount_max": 118000, "period": "annual" },
+    "salary_expectation": {
+      "currency": "USD",
+      "amount_min": 95000,
+      "amount_target": 108000,
+      "amount_max": 118000,
+      "period": "annual",
+      "negotiable": true
+    },
     "willing_to_relocate": true,
     "willing_to_travel_percent": 10
   },
@@ -211,6 +218,7 @@
     "research_statement_path": "applicants/teaching_statement.pdf",
     "statement_of_research_path": "applicants/teaching_statement.pdf",
     "teaching_statement_path": "applicants/teaching_statement.pdf",
+    "writing_sample_path": "applicants/writing_sample.pdf",
     "teaching_evaluations_path": "applicants/teaching_evaluations.pdf",
     "syllabus_path": "applicants/syllabus.pdf",
     "references_path": "applicants/references.pdf",
@@ -229,6 +237,29 @@
     "attestation": "I certify that the information provided is true and complete."
   },
 
+  "application_defaults": {
+    "authorized_to_work_us": true,
+    "requires_visa_sponsorship": false,
+    "has_conflict_of_interest": false,
+    "has_conflict_of_interest_details": "",
+    "desired_salary": "108000",
+    "salary_period": "annual",
+    "referral_source": "Job Board",
+    "specific_referral_source": "",
+    "employee_referral": false,
+    "employee_referrer_name": "",
+    "employee_referrer_relationship": "",
+    "previously_employed_by_employer": false,
+    "previously_employed_by_employer_details": "",
+    "previous_employer_employee_id": "",
+    "related_to_employer_employee": false,
+    "related_to_employer_employee_details": "",
+    "claims_veterans_preference": false,
+    "excluded_from_government_program": false,
+    "excluded_from_government_program_details": "N/A"
+  },
+  "application_exceptions": {},
+
   "answers": {
     "county": "Travis",
     "region": "Austin",
@@ -239,11 +270,12 @@
     "previously_employed_by_nyulangone_details": "",
     "previously_employed_by_umn": "No",
     "previously_employed_by_ua": "No",
+    "utah_employee_id": "",
 
     "gender": "Female",
     "is_hispanic_or_latino": "Yes",
     "ethnicity": "White",
-    "race_ethnicity": "Hispanic or Latino",
+    "race_ethnicity": "White",
     "protected_veteran": "Other Protected Veteran",
     "is_veteran": true,
     "veteran_with_disability": false,

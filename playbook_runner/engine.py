@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import conditions
-from .ai_recovery import AIRecovery, AIRecoveryError, action_to_step
 from .context import DataError
+from .equivalences import OptionCandidate, best_match, candidate_preview, equivalence_gap_report
 from .parser import Playbook, Step
 from .template import render_text, resolve_native
 
@@ -67,7 +67,6 @@ class Engine:
         default_timeout: int = 15000,
         screenshot_dir: str | None = None,
         pace: float = 0.0,
-        ai_recovery: AIRecovery | None = None,
         log: Callable[[str], None] = print,
     ):
         self.context = context
@@ -76,7 +75,6 @@ class Engine:
         self.default_timeout = default_timeout
         self.screenshot_dir = screenshot_dir
         self.pace = pace
-        self.ai_recovery = ai_recovery
         self.log = log
         self._pw = None
         self._browser = None
@@ -84,6 +82,7 @@ class Engine:
         self._started_at = time.time()  # only await_email_link mail newer than this counts
         self._return_page = None
         self._recent_steps: list[str] = []
+        self._last_equivalence_gap: dict[str, Any] | None = None
 
     # -- lifecycle ---------------------------------------------------------
     def __enter__(self) -> "Engine":
@@ -130,14 +129,13 @@ class Engine:
                 continue
             self._step_log(f"→ [{n}] {step.describe()}")
             try:
+                self._last_equivalence_gap = None
                 self._execute(step)
             except Exception as exc:  # noqa: BLE001 - we re-raise after handling
                 if step.optional:
                     self._step_log(f"  ! optional step failed, continuing: {exc}")
                     continue
-                if step.kind != "ai_fill_page" and self._try_ai_recovery(n, step, exc):
-                    continue
-                self._on_error(n, step)
+                self._on_error(n, step, exc)
                 raise StepError(step, f"step [{n}] {step.describe()} failed: {exc}") from exc
             if step.wait_after:
                 time.sleep(float(step.wait_after))
@@ -147,82 +145,6 @@ class Engine:
     # -- per-action dispatch ----------------------------------------------
     def _execute(self, step: Step) -> None:
         getattr(self, f"_do_{step.kind}")(step)
-
-    def _do_ai_fill_page(self, step: Step) -> None:
-        if self.ai_recovery is None:
-            raise StepError(step, "ai_fill_page requires --ai-recover")
-        self._step_log("  · AI page copilot inspecting visible form")
-        try:
-            plan = self.ai_recovery.propose_page_fill(
-                page=self.page,
-                step_number=step.line or 0,
-                step=step,
-                context=self.context,
-                recent_steps=self._recent_steps,
-            )
-        except AIRecoveryError as exc:
-            raise StepError(step, f"AI page copilot unavailable: {exc}") from exc
-        if plan.decision != "recover":
-            self._step_log(f"  · AI page copilot gave up: {plan.reason}")
-            return
-        self._step_log(
-            f"  · AI page copilot plan confidence={plan.confidence:.2f}: {plan.reason}"
-        )
-        self._record_ai_recovery_plan(step.line or 0, step, plan)
-        for index, action in enumerate(plan.actions, start=1):
-            copilot_step = action_to_step(action, line=step.line)
-            self._step_log(
-                f"  · AI page action {index}/{len(plan.actions)}: "
-                f"{copilot_step.describe()}"
-            )
-            self._execute(copilot_step)
-            if copilot_step.wait_after:
-                time.sleep(float(copilot_step.wait_after))
-
-    def _try_ai_recovery(self, n: int, step: Step, exc: Exception) -> bool:
-        if self.ai_recovery is None:
-            return False
-        for attempt in range(1, max(1, self.ai_recovery.max_attempts) + 1):
-            self._step_log(
-                f"  · AI recovery attempt {attempt}/{self.ai_recovery.max_attempts} "
-                f"for step [{n}]"
-            )
-            try:
-                plan = self.ai_recovery.propose(
-                    page=self.page,
-                    step_number=n,
-                    step=step,
-                    error=exc,
-                    context=self.context,
-                    recent_steps=self._recent_steps,
-                )
-            except AIRecoveryError as recovery_exc:
-                self._step_log(f"  · AI recovery unavailable: {recovery_exc}")
-                return False
-            if plan.decision != "recover":
-                self._step_log(f"  · AI recovery gave up: {plan.reason}")
-                return False
-            self._step_log(
-                f"  · AI recovery plan confidence={plan.confidence:.2f}: {plan.reason}"
-            )
-            self._record_ai_recovery_plan(n, step, plan)
-            try:
-                for index, action in enumerate(plan.actions, start=1):
-                    recovery_step = action_to_step(action, line=step.line)
-                    self._step_log(
-                        f"  · AI action {index}/{len(plan.actions)}: "
-                        f"{recovery_step.describe()}"
-                    )
-                    self._execute(recovery_step)
-                    if recovery_step.wait_after:
-                        time.sleep(float(recovery_step.wait_after))
-                self._step_log(f"  ✓ AI recovery succeeded for step [{n}]")
-                return True
-            except Exception as action_exc:  # noqa: BLE001
-                self._step_log(f"  · AI recovery action failed: {action_exc}")
-                exc = action_exc
-                continue
-        return False
 
     def _do_open(self, step: Step) -> None:
         url = render_text(step.target, self.context)
@@ -235,14 +157,15 @@ class Engine:
         opener = self.page
         popup = None
         clicked = False
+        timeout = int(step.timeout) if step.timeout else self.default_timeout
         try:
             with self.page.expect_popup(timeout=2500) as popup_info:
-                loc.click()
+                loc.click(timeout=timeout, no_wait_after=True)
                 clicked = True
             popup = popup_info.value
         except Exception:
             if not clicked:
-                loc.click()
+                loc.click(timeout=timeout, no_wait_after=True)
         if popup is not None:
             self._return_page = opener
             self.page = popup
@@ -363,7 +286,7 @@ class Engine:
         selects = dialog.locator("select[id$='MainContentPlaceHolder_SearchSelectBox'], select")
         select = selects.last if selects.count() > 1 else selects.first
         select.wait_for(state="visible", timeout=self.default_timeout)
-        self._select_best_option(select, query, step)
+        self._select_best_option(select, query, step, context_label=label)
 
         dialog.locator("input[value='Select'], button:has-text('Select')").first.click()
         deadline = time.monotonic() + 3.0
@@ -630,12 +553,17 @@ class Engine:
             try:
                 loc.select_option(value=option)
             except Exception:
-                self._select_best_option(loc, option, step)
+                self._select_best_option(loc, option, step, context_label=field)
 
     def _check_in_group(self, option: str, group: str | None, step: Step,
                         scope_sel: str | None = None) -> None:
         if scope_sel:
-            loc = self._scoped_radio(scope_sel, option)
+            loc = self._scoped_radio(
+                scope_sel,
+                option,
+                context_label=group or step.describe(),
+                step=step,
+            )
             if loc is None:
                 raise StepError(step, f"could not locate option {option!r} "
                                       f"within scope {scope_sel!r}")
@@ -771,11 +699,16 @@ class Engine:
                 return None
             self._poll_pause()
 
-    def _select_best_option(self, select, query: str, step: Step) -> None:
-        """Select the exact option when possible, else the first containing match."""
-        want = _norm_label(query)
+    def _select_best_option(
+        self,
+        select,
+        query: str,
+        step: Step,
+        *,
+        context_label: str | None = None,
+    ) -> None:
+        """Select the best matching option using deterministic equivalences."""
         deadline = time.monotonic() + max(self.default_timeout, 1000) / 1000.0
-        seen = []
         while True:
             options = select.locator("option")
             try:
@@ -783,34 +716,41 @@ class Engine:
             except Exception as exc:
                 raise StepError(step, f"could not read search results: {exc}") from exc
 
-            fallback = None
-            seen = []
+            candidates: list[OptionCandidate] = []
             loading = False
             for i in range(count):
                 opt = options.nth(i)
                 text = opt.inner_text().strip()
                 value = opt.get_attribute("value") or text
                 norm = _norm_label(text)
-                if text:
-                    seen.append(text)
                 if norm in ("loading", "loading...", "please wait"):
                     loading = True
                     continue
-                if norm == want:
-                    select.select_option(value=value)
-                    return
-                if fallback is None and want in norm:
-                    fallback = value
+                if text or value:
+                    candidates.append(OptionCandidate(label=text, value=value, index=i))
 
-            if fallback is not None:
-                select.select_option(value=fallback)
+            match = best_match(query, candidates, context=context_label or step.describe())
+            if match is not None:
+                value = match.candidate.value or match.candidate.label
+                self._step_log(
+                    f"  · option match: {query!r} -> {match.candidate.label!r} "
+                    f"({match.reason})"
+                )
+                select.select_option(value=value)
                 return
             if not loading or time.monotonic() >= deadline:
                 break
             self._poll_pause()
 
-        preview = ", ".join(seen[:8])
-        raise StepError(step, f"no search result matching {query!r}; first results: {preview}")
+        preview = candidate_preview(candidates)
+        self._record_equivalence_gap(
+            action="select",
+            wanted=query,
+            candidates=candidates,
+            context=context_label or step.describe(),
+            step=step,
+        )
+        raise StepError(step, f"no option matching {query!r}; first options: {preview}")
 
     def _ensure_live_page(self) -> None:
         """If a popup closed itself, return to the still-open application page."""
@@ -990,11 +930,19 @@ class Engine:
 
         found = self._resolve(build)
         if found is None:
+            found = self._choice_by_equivalence(option, step, group=group)
+        if found is None:
             where = f" within group {group!r}" if group else ""
             raise StepError(step, f"could not locate option {option!r}{where}")
         return found
 
-    def _scoped_radio(self, scope_sel: str, option: str):
+    def _scoped_radio(
+        self,
+        scope_sel: str,
+        option: str,
+        context_label: str | None = None,
+        step: Step | None = None,
+    ):
         """Find a radio/checkbox inside a CSS-scoped group whose label matches.
 
         Used when many identically-labelled options ("Yes"/"No"/...) repeat
@@ -1004,6 +952,7 @@ class Engine:
         """
         target = _norm_label(option)
         deadline = time.monotonic() + max(self.default_timeout, 1000) / 1000.0
+        last_candidates: list[OptionCandidate] = []
         while True:
             for scope in self._scopes():
                 radios = scope.locator(scope_sel)
@@ -1011,18 +960,137 @@ class Engine:
                     n = radios.count()
                 except Exception:
                     n = 0
+                candidates: list[OptionCandidate] = []
                 for i in range(n):
                     r = radios.nth(i)
-                    if _norm_label(self._label_of(scope, r)) in (target,) or \
-                       _norm_label(self._label_of(scope, r)).startswith(target):
-                        return r
+                    label = self._label_of(scope, r)
+                    value = None
+                    try:
+                        value = r.get_attribute("value")
+                    except Exception:
+                        pass
+                    candidates.append(OptionCandidate(label=label or value or "", value=value, index=i))
+                if candidates:
+                    last_candidates = candidates
+                match = best_match(option, candidates, context=context_label)
+                if match is not None:
+                    self._step_log(
+                        f"  · option match: {option!r} -> {match.candidate.label!r} "
+                        f"({match.reason})"
+                    )
+                    return radios.nth(match.candidate.index)
             if time.monotonic() >= deadline:
+                if step is not None and last_candidates:
+                    self._record_equivalence_gap(
+                        action="check",
+                        wanted=option,
+                        candidates=last_candidates,
+                        context=context_label,
+                        step=step,
+                    )
                 return None
             self._poll_pause()
+
+    def _choice_by_equivalence(
+        self,
+        option: str,
+        step: Step,
+        *,
+        group: str | None = None,
+        scope_sel: str | None = None,
+    ):
+        """Resolve radio/checkbox labels through the shared equivalence table."""
+        all_candidates: list[OptionCandidate] = []
+        for scope in self._scopes():
+            container = scope
+            if scope_sel:
+                controls = scope.locator(scope_sel)
+            else:
+                if group:
+                    glit = _xpath_literal(group)
+                    grouped = scope.locator(
+                        f"xpath=//*[self::fieldset or self::table or self::div or self::section]"
+                        f"[.//input][contains(normalize-space(.),{glit})][last()]"
+                    )
+                    try:
+                        if grouped.count() > 0:
+                            container = grouped.last
+                    except Exception:
+                        pass
+                controls = container.locator(
+                    "input[type=radio],input[type=checkbox],[role=radio],[role=checkbox]"
+                )
+            try:
+                n = controls.count()
+            except Exception:
+                continue
+            candidates: list[OptionCandidate] = []
+            for i in range(n):
+                control = controls.nth(i)
+                label = self._label_of(scope, control)
+                value = None
+                try:
+                    value = control.get_attribute("value")
+                except Exception:
+                    pass
+                candidates.append(OptionCandidate(label=label or value or "", value=value, index=i))
+            all_candidates.extend(candidates)
+            match = best_match(option, candidates, context=group or step.describe())
+            if match is not None:
+                self._step_log(
+                    f"  · option match: {option!r} -> {match.candidate.label!r} "
+                    f"({match.reason})"
+                )
+                return controls.nth(match.candidate.index)
+        if all_candidates:
+            self._record_equivalence_gap(
+                action="check",
+                wanted=option,
+                candidates=all_candidates,
+                context=group or step.describe(),
+                step=step,
+            )
+        return None
 
     @staticmethod
     def _label_of(scope, radio) -> str:
         """Best-effort visible label for a radio/checkbox locator."""
+        script = r"""
+        el => {
+          const text = node => (node && (node.innerText || node.textContent || ''))
+            .replace(/\s+/g, ' ').trim();
+          const esc = value => window.CSS && CSS.escape
+            ? CSS.escape(String(value))
+            : String(value).replace(/["\\#.:,[\]= >+~*|^$]/g, '\\$&');
+          if (el.id) {
+            const lbl = document.querySelector(`label[for="${esc(el.id)}"]`);
+            if (text(lbl)) return text(lbl);
+          }
+          const wrap = el.closest && el.closest('label');
+          if (text(wrap)) return text(wrap);
+          const aria = el.getAttribute('aria-label');
+          if (aria) return aria.trim();
+          const labelledBy = el.getAttribute('aria-labelledby');
+          if (labelledBy) {
+            const joined = labelledBy.split(/\s+/)
+              .map(id => text(document.getElementById(id))).filter(Boolean).join(' ');
+            if (joined) return joined;
+          }
+          const next = el.nextElementSibling;
+          if (next && next.tagName && next.tagName.toLowerCase() === 'label' && text(next)) {
+            return text(next);
+          }
+          const parent = el.parentElement;
+          if (text(parent)) return text(parent);
+          return '';
+        }
+        """
+        try:
+            label = radio.evaluate(script)
+            if label:
+                return label
+        except Exception:
+            pass
         try:
             rid = radio.get_attribute("id")
         except Exception:
@@ -1056,13 +1124,39 @@ class Engine:
         self._recent_steps = self._recent_steps[-25:]
         self.log(message)
 
+    def _record_equivalence_gap(
+        self,
+        *,
+        action: str,
+        wanted: Any,
+        candidates: list[OptionCandidate],
+        context: str | None,
+        step: Step,
+    ) -> None:
+        report = equivalence_gap_report(
+            wanted,
+            candidates,
+            context=context,
+            action=action,
+        )
+        report["step"] = {
+            "kind": step.kind,
+            "description": step.describe(),
+            "target": step.target,
+            "value": _redact_for_artifact(step.value),
+            "group": step.group,
+            "scope": step.scope,
+            "selector": step.selector,
+        }
+        self._last_equivalence_gap = report
+
     def _settle(self) -> None:
         try:
             self.page.wait_for_load_state("networkidle", timeout=self.default_timeout)
         except Exception:
             pass
 
-    def _on_error(self, n: int, step: Step) -> None:
+    def _on_error(self, n: int, step: Step, error: Exception) -> None:
         if not self.screenshot_dir:
             return
         try:
@@ -1079,42 +1173,18 @@ class Engine:
             except Exception as exc:  # noqa: BLE001
                 html.write_text(f"Could not capture page HTML: {exc}\n")
 
-            (failure_dir / "failure.txt").write_text(self._failure_report(n, step, shot, html))
+            (failure_dir / "failure.txt").write_text(
+                self._failure_report(n, step, error, shot, html)
+            )
+            if self._last_equivalence_gap:
+                (failure_dir / "equivalence-gap.json").write_text(
+                    json.dumps(self._last_equivalence_gap, indent=2, sort_keys=True) + "\n"
+                )
             self.log(f"  · saved failure artifacts {failure_dir}")
         except Exception as exc:  # noqa: BLE001
             self.log(f"  · could not save failure artifacts: {exc}")
 
-    def _record_ai_recovery_plan(self, n: int, step: Step, plan) -> None:
-        if not self.screenshot_dir:
-            return
-        try:
-            out = Path(self.screenshot_dir)
-            out.mkdir(parents=True, exist_ok=True)
-            record = {
-                "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "step_number": n,
-                "failed_step": step.describe(),
-                "confidence": plan.confidence,
-                "reason": plan.reason,
-                "actions": [
-                    {
-                        "kind": action.kind,
-                        "target": action.target,
-                        "selector": action.selector,
-                        "value": _redact_for_artifact(action.value),
-                        "role": action.role,
-                        "exact": action.exact,
-                        "wait_after": action.wait_after,
-                    }
-                    for action in plan.actions
-                ],
-            }
-            with (out / "recovery-log.jsonl").open("a") as handle:
-                handle.write(json.dumps(record) + "\n")
-        except Exception as exc:  # noqa: BLE001
-            self.log(f"  · could not save AI recovery log: {exc}")
-
-    def _failure_report(self, n: int, step: Step, shot: Path, html: Path) -> str:
+    def _failure_report(self, n: int, step: Step, error: Exception, shot: Path, html: Path) -> str:
         try:
             url = self.page.url
         except Exception:
@@ -1129,8 +1199,13 @@ class Engine:
             f"description: {step.describe()}",
             f"url: {url}",
             f"title: {title}",
+            f"error: {type(error).__name__}: {error}",
             f"screenshot: {shot.name}",
             f"html: {html.name}",
+        ]
+        if self._last_equivalence_gap:
+            lines.append("equivalence_gap: equivalence-gap.json")
+        lines.extend([
             "",
             "step:",
             f"  target: {step.target!r}",
@@ -1143,7 +1218,7 @@ class Engine:
             f"  optional: {step.optional}",
             f"  wait_after: {step.wait_after!r}",
             f"  timeout: {step.timeout!r}",
-        ]
+        ])
         if step.when:
             lines.append(f"  when: {step.when!r}")
         if step.kind == "pick":

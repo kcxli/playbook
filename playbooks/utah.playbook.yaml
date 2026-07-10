@@ -102,8 +102,20 @@ steps:
 
   # Start application
   - click: "Apply for this Job"
-    selector: 'form.apply-to-job-form input[type="submit"][value="Apply for this Job"]'
+    selector: 'a[href*="/pre_apply"], form.apply-to-job-form input[type="submit"][value="Apply for this Job"], input.continue-job[value="Apply for this Job"]'
     wait_after: 3
+  - fill: "Login Username"
+    selector: "#user_username"
+    value: "ut{{ builtins.short_unique }}"
+  - fill: "Login Password"
+    selector: "#user_password"
+    value: "Pw{{ builtins.short_unique }}"
+  - click: "Log In"
+    selector: 'form#new_user input[type="submit"][value="Log In"]'
+    wait_after: 3
+  - wait_for: "Application form"
+    selector: "#edit_submission"
+    timeout: 15000
 
   # Personal Information
   - fill: "Name Prefix"

@@ -102,7 +102,7 @@ Example:
     "previous_employer_employee_id": "N/A"
   },
   "umn": {
-    "referral_source": "HERC - Higher Education Recruitment Consortium",
+    "referral_source": "HERC",
     "specific_referral_source": "HERC statistics faculty mailing list"
   }
 }

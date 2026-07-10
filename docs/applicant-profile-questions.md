@@ -61,7 +61,7 @@ the playbook's `employer_key`.
   },
   "application_exceptions": {
     "umn": {
-      "referral_source": "HERC - Higher Education Recruitment Consortium",
+      "referral_source": "HERC",
       "specific_referral_source": "HERC statistics faculty mailing list"
     }
   }

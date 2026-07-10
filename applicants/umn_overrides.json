@@ -1,7 +1,7 @@
 {
   "documents": {
     "resume_path_or_url": "applicants/test_resume.pdf",
-    "cover_letter_path_or_url": "applicants/test_resume.pdf",
+    "cover_letter_path_or_url": "applicants/cover_letter.pdf",
     "additional_attachment_path": "",
     "portfolio_url": "",
     "linkedin_url": "https://www.linkedin.com/in/marcus-reyes-test",
@@ -10,18 +10,21 @@
   },
 
   "answers": {
-    "county": "",
+    "county": "Harris",
     "major": "Biology",
     "degree_year_acquired": "2018",
     "has_conflict_of_interest": false,
     "authorized_to_work_us": true,
     "referral_source": "Job Board",
-    "specific_referral_source": "",
+    "specific_referral_source": "HigherEdJobs search alert",
     "previously_employed_by_umn": "No",
 
     "highest_education": "Bachelors Level Degree",
     "degree": "Bachelor of Science",
+    "umn_degree": "Bachelor of Science",
     "school": "University of Houston",
+    "umn_education_country": "",
+    "umn_education_state": "",
 
     "gender": "Male",
     "is_hispanic_or_latino": true,
