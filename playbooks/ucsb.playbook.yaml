@@ -1,6 +1,7 @@
 version: 1
 name: "UC Santa Barbara - Lecturer Recruitment Pool in Statistics and Applied Probability (UC Recruit)"
 job_id: "JPF03088"
+employer_key: "ucsb"
 url: "https://recruit.ap.ucsb.edu/JPF03088"
 
 # =============================================================================

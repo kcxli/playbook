@@ -1,6 +1,7 @@
 version: 1
 name: "CUHK-Shenzhen Academic Recruitment Application"
 job_id: "735"
+employer_key: "cuhk"
 url: "https://jobs.cuhk.edu.cn/jobDetails?id=735&channel=SDS4"
 
 # =============================================================================

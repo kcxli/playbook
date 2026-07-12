@@ -1,6 +1,7 @@
 version: 1
 name: "UC Irvine — Lecturer Unit 18, Statistics (UC Recruit)"
 job_id: "JPF10017"
+employer_key: "uci"
 url: "https://recruit.ap.uci.edu/JPF10017"
 
 # =============================================================================

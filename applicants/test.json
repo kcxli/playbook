@@ -163,6 +163,14 @@
     "willing_to_travel_percent": 10
   },
 
+  "application_defaults": {
+    "referral_source": "Job Board",
+    "specific_referral_source": "",
+    "previously_employed_by_employer": false,
+    "previously_employed_by_employer_details": "",
+    "previous_employer_employee_id": ""
+  },
+
   "work_history": [
     {
       "company": "Baylor College of Medicine",

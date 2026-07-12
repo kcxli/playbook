@@ -1,6 +1,7 @@
 version: 1
 name: "Yale Application Senior Lecturer"
 job_id: "185331"
+employer_key: "yale"
 url: "https://apply.interfolio.com/185331"
 
 steps:

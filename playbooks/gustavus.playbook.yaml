@@ -1,0 +1,425 @@
+version: 1
+name: "Gustavus Adolphus College - Assistant Professor (Statistics)"
+job_id: "2419"
+employer_key: "gustavus"
+url: "https://gustavus.edu/employment/apply/2419"
+
+steps:
+  # Dismiss privacy banner if it appears
+  - click: "I Understand"
+    selector: "#uc-ccpa-ok-button"
+    optional: true
+    wait_after: 1
+
+  # Begin application
+  - click: "Begin Application"
+    selector: "#begin"
+    wait_after: 2
+
+  # Applicant Information
+  - fill: "First Name"
+    selector: '[id="application-form.applicant-information.first-name:element"]'
+    value: "{{ person_name.legal_name.first }}"
+  - fill: "Middle Name"
+    selector: '[id="application-form.applicant-information.middle-name:element"]'
+    value: "{{ person_name.legal_name.middle }}"
+  - fill: "Last Name"
+    selector: '[id="application-form.applicant-information.last-name:element"]'
+    value: "{{ person_name.legal_name.last }}"
+  - fill: "Address Line 1"
+    selector: '[id="application-form.applicant-information.address-1:element"]'
+    value: "{{ address_and_contact.primary_address.line_1 }}"
+  - fill: "Address Line 2"
+    selector: '[id="application-form.applicant-information.address-2:element"]'
+    value: "{{ address_and_contact.primary_address.line_2 }}"
+    optional: true
+    when: 'address_and_contact.primary_address.line_2 != "" and address_and_contact.primary_address.line_2 != null'
+  - fill: "City"
+    selector: '[id="application-form.applicant-information.city:element"]'
+    value: "{{ address_and_contact.primary_address.city }}"
+  - fill: "State"
+    selector: '[id="application-form.applicant-information.state:element"]'
+    value: "{{ address_and_contact.primary_address.state_province }}"
+  - fill: "Postal/Zip Code"
+    selector: '[id="application-form.applicant-information.zip:element"]'
+    value: "{{ address_and_contact.primary_address.postal_code }}"
+  - fill: "Country"
+    selector: '[id="application-form.applicant-information.country:element"]'
+    value: "{{ address_and_contact.primary_address.country }}"
+  - fill: "Primary Phone"
+    selector: '[id="application-form.applicant-information.phone-1-number:element"]'
+    value: "{{ address_and_contact.phone_numbers.mobile }}"
+  - select: "Primary Phone Type"
+    selector: '[id="application-form.applicant-information.phone-1-type:element"]'
+    value: "Mobile"
+  - fill: "E-mail Address"
+    selector: '[id="application-form.applicant-information.email:element"]'
+    value: "{{ emails.institution_email }}"
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Personal Information
+  - pick:
+      field: "Legal Authorization"
+      as: select
+      source: app_answers.authorized_to_work_us
+      map: { true: "Yes", false: "No" }
+    selector: '[id="application-form.personal-information.legal-authorization:element"]'
+  - pick:
+      field: "Visa Sponsorship"
+      as: select
+      source: app_answers.requires_visa_sponsorship
+      map: { true: "Yes", false: "No" }
+    selector: '[id="application-form.personal-information.visa-sponsorship:element"]'
+    optional: true
+  - select: "Legal Adult"
+    selector: '[id="application-form.personal-information.legal-adult:element"]'
+    value: "Yes"
+  - pick:
+      field: "Gustavus Employment"
+      as: select
+      source: app_answers.previously_employed_by_employer
+      map: { true: "Yes", false: "No" }
+      default: "No"
+    selector: '[id="application-form.personal-information.gustavus-employment:element"]'
+  - select: "Current Student"
+    selector: '[id="application-form.personal-information.gustavus-student:element"]'
+    value: "No"
+  - fill: "Gustavus Id Number"
+    selector: '[id="application-form.personal-information.gustavus-id-number:element"]'
+    value: "{{ app_answers.previous_employer_employee_id }}"
+    optional: true
+    when: 'app_answers.previous_employer_employee_id != "" and app_answers.previous_employer_employee_id != null'
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Voluntary demographic information
+  - select: "Sex at Birth"
+    selector: '[id="application-form.voluntary-demographic.sexatbirth:element"]'
+    value: "I prefer not to identify"
+    optional: true
+  - pick:
+      field: "Identified Gender"
+      as: select
+      source: app_answers.gender
+      map:
+        Male: "Male"
+        Female: "Female"
+        Non-Binary: "Non-binary/third gender"
+      default: "I prefer not to identify"
+    selector: '[id="application-form.voluntary-demographic.identifiedgender:element"]'
+    optional: true
+  - fill: "Gender Description"
+    selector: '[id="application-form.voluntary-demographic.describedgender:element"]'
+    value: "{{ identity_and_status.gender.custom_value }}"
+    optional: true
+    when: 'identity_and_status.gender.custom_value != "" and identity_and_status.gender.custom_value != null'
+  - pick:
+      field: "Ethnicity"
+      as: select
+      source: app_answers.is_hispanic_or_latino
+      map:
+        true: "Yes"
+        false: "No"
+        "Yes": "Yes"
+        "No": "No"
+        "Hispanic or Latino": "Yes"
+        "Not Hispanic or Latino": "No"
+      default: "I prefer not to identify"
+    selector: '[id="application-form.voluntary-demographic.hispanic-latino:element"]'
+    optional: true
+  - check: "American Indian or Alaskan Native"
+    selector: 'input[name="application-form[voluntary-demographic][racial-categories][]"][value="American Indian or Alaskan Native"]'
+    optional: true
+    when: '"American Indian or Alaska Native" in app_answers.race_ethnicity'
+  - check: "Asian"
+    selector: 'input[name="application-form[voluntary-demographic][racial-categories][]"][value="Asian"]'
+    optional: true
+    when: '"Asian" in app_answers.race_ethnicity'
+  - check: "Black or African American"
+    selector: 'input[name="application-form[voluntary-demographic][racial-categories][]"][value="Black or African American"]'
+    optional: true
+    when: '"Black or African American" in app_answers.race_ethnicity'
+  - check: "Native Hawaiian or other Pacific Islander"
+    selector: 'input[name="application-form[voluntary-demographic][racial-categories][]"][value="Native Hawaiian or other Pacific Islander"]'
+    optional: true
+    when: '"Native Hawaiian or Pacific Islander" in app_answers.race_ethnicity'
+  - check: "White/Caucasian"
+    selector: 'input[name="application-form[voluntary-demographic][racial-categories][]"][value="White/Caucasian"]'
+    optional: true
+    when: '"White" in app_answers.race_ethnicity'
+  - check: "I prefer not to identify"
+    selector: 'input[name="application-form[voluntary-demographic][racial-categories][]"][value="none"]'
+    optional: true
+    when: 'app_answers.race_ethnicity == null or app_answers.race_ethnicity == ""'
+  - fill: "Initials"
+    selector: '[id="application-form.voluntary-demographic.demographic-agreement:element"]'
+    value: "{{ builtins.legal_initials }}"
+    optional: true
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Voluntary disability information
+  - pick:
+      field: "Disablity Status"
+      as: select
+      source: detailed_personal_info.disability_status.value
+      map:
+        yes: "Yes, I have a disability (or previously had a disability)"
+        no: "No, I don't have a disability"
+      default: "I prefer not to identify"
+    selector: '[id="application-form.voluntary-disability.disablity-status:element"]'
+    optional: true
+  - fill: "Initials"
+    selector: '[id="application-form.voluntary-disability.disability-agreement:element"]'
+    value: "{{ builtins.legal_initials }}"
+    optional: true
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Reasonable Accommodations
+  - pick:
+      field: "Reasonable Accommodations Needed"
+      as: select
+      source: detailed_personal_info.disability_status.accommodation_needed
+      map:
+        true: "Yes, I do need reasonable accommodations."
+        false: "No, I do not need reasonable accommodations."
+      default: "I prefer not to identify"
+    selector: '[id="application-form.reasonable-accommodations.accommodations-necessary:element"]'
+    optional: true
+  - fill: "Accommodations Needed"
+    selector: '[id="application-form.reasonable-accommodations.accommodations-list:element"]'
+    value: "{{ detailed_personal_info.disability_status.accommodation_details }}"
+    optional: true
+    when: 'detailed_personal_info.disability_status.accommodation_needed == true'
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Voluntary veteran information
+  - pick:
+      field: "Veteran Status"
+      as: select
+      source: detailed_personal_info.veteran_status.value
+      map:
+        yes: "Yes, I identify as one or more of the classifications of protected veteran listed above"
+        no: "No, I am not a protected veteran."
+      default: "I prefer not to identify"
+    selector: '[id="application-form.veteran-status.vet-status:element"]'
+    optional: true
+  - fill: "Initials"
+    selector: '[id="application-form.veteran-status.veteran-agreement:element"]'
+    value: "{{ builtins.legal_initials }}"
+    optional: true
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Position Information
+  - fill: "Desired Salary/Wage"
+    selector: '[id="application-form.position-information.desired-salary:element"]'
+    value: "{{ app_answers.desired_salary }}"
+  - select: "Salary Period"
+    selector: '[id="application-form.position-information.salary-type:element"]'
+    value: "{{ app_answers.salary_period }}"
+  - select: "Desired Position Type"
+    selector: '[id="application-form.position-information.desired-position-type:element"]'
+    value: "Full-Time"
+  - fill: "Date Available"
+    selector: '[id="application-form.position-information.available-start-date:element"]'
+    value: "{{ app_answers.availability_to_start }}"
+  - pick:
+      field: "Job Referrer"
+      as: select
+      source: app_answers.referral_source
+      map:
+        "HERC": "HERC"
+        "HERC - Higher Education Recruitment Consortium": "HERC"
+        "HigherEdJobs": "HigherEd Jobs"
+        "HigherEd Jobs": "HigherEd Jobs"
+        "Job Board": "HigherEd Jobs"
+        "LinkedIn": "LinkedIn"
+        "Indeed": "Indeed"
+        "Chronicle": "Chronicle of HigherEd"
+        "Employer Website": "Gustavus Website"
+        "Gustavus Website": "Gustavus Website"
+        "Other": "Other"
+      default: "Other"
+    selector: '[id="application-form.position-information.job-referrer:element"]'
+    optional: true
+  - fill: "More Info"
+    selector: '[id="application-form.position-information.referrer-description:element"]'
+    value: "{{ app_answers.specific_referral_source }}"
+    optional: true
+    when: 'app_answers.specific_referral_source != "" and app_answers.specific_referral_source != null'
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Education Information
+  - pick:
+      field: "Education Type"
+      as: select
+      source: app_answers.highest_education
+      map:
+        "Doctorate": "Doctoral Degree"
+        "Doctorate (Academic)": "Doctoral Degree"
+        "Doctoral Degree": "Doctoral Degree"
+        "Post Graduate Degree": "Doctoral Degree"
+        "Master's Degree": "Master's Degree"
+        "Masters Level Degree": "Master's Degree"
+        "Bachelor's Degree": "Undergraduate Degree"
+        "Bachelors Level Degree": "Undergraduate Degree"
+        "4 Year University/College Degree": "Undergraduate Degree"
+        "High School/Equivalent": "High School"
+      default: "Other"
+    selector: '[id="application-form.education.education-container:0.education-type:element"]'
+  - fill: "Institution Name"
+    selector: '[id="application-form.education.education-container:0.institution-name:element"]'
+    value: "{{ app_answers.school }}"
+  - fill: "Institution Location"
+    selector: '[id="application-form.education.education-container:0.institution-location:element"]'
+    value: "{{ education.schools.0.city }}, {{ education.schools.0.state_province }}, {{ education.schools.0.country }}"
+  - fill: "Degree"
+    selector: '[id="application-form.education.education-container:0.degree-name:element"]'
+    value: "{{ app_answers.degree }}"
+  - fill: "Field of Study"
+    selector: '[id="application-form.education.education-container:0.field-of-study:element"]'
+    value: "{{ app_answers.degree_discipline }}"
+    optional: true
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Employment History
+  - check: "Use attached resume for employment history"
+    selector: 'input[name="application-form[employment-history][employment-attached][]"]'
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # References
+  - fill: "Reference Name"
+    selector: '[id="application-form.references.reference-container:0.reference-name:element"]'
+    value: "{{ references.0.name }}"
+  - fill: "Relationship"
+    selector: '[id="application-form.references.reference-container:0.relationship:element"]'
+    value: "{{ references.0.relationship }}"
+  - fill: "Years Known"
+    selector: '[id="application-form.references.reference-container:0.relationship-length:element"]'
+    value: "{{ references.0.years_known }}"
+  - fill: "Reference Email"
+    selector: '[id="application-form.references.reference-container:0.reference-email:element"]'
+    value: "{{ references.0.email }}"
+    optional: true
+  - fill: "Reference Phone Number"
+    selector: '[id="application-form.references.reference-container:0.reference-phone:element"]'
+    value: "{{ references.0.phone }}"
+  - click: "Add Reference"
+    selector: '[id="application-form.references.reference-container:0.add_reference:element"]'
+    when: 'references.1.name != "" and references.1.name != null'
+    wait_after: 1
+  - fill: "Reference Name"
+    selector: '[id="application-form.references.reference-container:1.reference-name:element"]'
+    value: "{{ references.1.name }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Relationship"
+    selector: '[id="application-form.references.reference-container:1.relationship:element"]'
+    value: "{{ references.1.relationship }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Years Known"
+    selector: '[id="application-form.references.reference-container:1.relationship-length:element"]'
+    value: "{{ references.1.years_known }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Reference Email"
+    selector: '[id="application-form.references.reference-container:1.reference-email:element"]'
+    value: "{{ references.1.email }}"
+    optional: true
+    when: 'references.1.name != "" and references.1.name != null'
+  - fill: "Reference Phone Number"
+    selector: '[id="application-form.references.reference-container:1.reference-phone:element"]'
+    value: "{{ references.1.phone }}"
+    when: 'references.1.name != "" and references.1.name != null'
+  - click: "Add Reference"
+    selector: '[id="application-form.references.reference-container:1.add_reference:element"]'
+    when: 'references.2.name != "" and references.2.name != null'
+    wait_after: 1
+  - fill: "Reference Name"
+    selector: '[id="application-form.references.reference-container:2.reference-name:element"]'
+    value: "{{ references.2.name }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Relationship"
+    selector: '[id="application-form.references.reference-container:2.relationship:element"]'
+    value: "{{ references.2.relationship }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Years Known"
+    selector: '[id="application-form.references.reference-container:2.relationship-length:element"]'
+    value: "{{ references.2.years_known }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Reference Email"
+    selector: '[id="application-form.references.reference-container:2.reference-email:element"]'
+    value: "{{ references.2.email }}"
+    optional: true
+    when: 'references.2.name != "" and references.2.name != null'
+  - fill: "Reference Phone Number"
+    selector: '[id="application-form.references.reference-container:2.reference-phone:element"]'
+    value: "{{ references.2.phone }}"
+    when: 'references.2.name != "" and references.2.name != null'
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Document Upload
+  - upload: "Resume"
+    selector: 'input[type=file][name="files[]"]'
+    value: "{{ documents.resume_path_or_url }}"
+    wait_after: 2
+  - upload: "Cover Letter"
+    selector: 'input[type=file][name="files[]"]'
+    value: "{{ documents.cover_letter_path_or_url }}"
+    optional: true
+    when: 'documents.cover_letter_path_or_url != "" and documents.cover_letter_path_or_url != null'
+    wait_after: 2
+  - upload: "Research Statement"
+    selector: 'input[type=file][name="files[]"]'
+    value: "{{ documents.research_statement_path }}"
+    optional: true
+    when: 'documents.research_statement_path != "" and documents.research_statement_path != null'
+    wait_after: 2
+  - upload: "Teaching Statement"
+    selector: 'input[type=file][name="files[]"]'
+    value: "{{ documents.teaching_statement_path }}"
+    optional: true
+    when: 'documents.teaching_statement_path != "" and documents.teaching_statement_path != null'
+    wait_after: 2
+  - upload: "Teaching Evaluations"
+    selector: 'input[type=file][name="files[]"]'
+    value: "{{ documents.teaching_evaluations_path }}"
+    optional: true
+    when: 'documents.teaching_evaluations_path != "" and documents.teaching_evaluations_path != null'
+    wait_after: 2
+  - upload: "References"
+    selector: 'input[type=file][name="files[]"]'
+    value: "{{ documents.references_path }}"
+    optional: true
+    when: 'documents.references_path != "" and documents.references_path != null'
+    wait_after: 2
+  - fill: "Additional Comments"
+    selector: '[id="application-form.document-upload.comments:element"]'
+    value: ""
+    optional: true
+  - click: "Next Section"
+    selector: '[data-button="next"]'
+    wait_after: 1
+
+  # Confirmation
+  - check: "I certify the information provided is accurate."
+    selector: 'input[name="application-form[confirmation][termsverification][]"][value="1"]'
+
+  # - click: "Submit"
+  #   selector: '[id="application-form.submit:element"]'

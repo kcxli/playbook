@@ -1,6 +1,7 @@
 version: 1
 name: "University of Minnesota Application"
 job_id: "373632"
+employer_key: "umn"
 url: "https://hr.myu.umn.edu/jobs/ext/373632"
 
 steps:

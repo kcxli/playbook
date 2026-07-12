@@ -1,12 +1,14 @@
 version: 1
 name: "NYU Langone Health Application"
 job_id: "1158700_RR00117907"
+employer_key: "nyulangone"
 url: "https://jobs.silkroad.com/NYULangone/NYULHCareers/Apply/MultiForm/119818"
 
-# Template paths reference the applicant data file (see applicants/example.json):
+# Template paths reference the applicant data file:
 #   person_name.*, address_and_contact.*, emails.*, documents.* come from the
-#   rich profile; site-specific answers live under `answers.*`;
-#   `builtins.today` is supplied by the runner.
+#   rich profile; repeated application answers live under `app_answers.*`;
+#   NYU-specific answers live under `answers.nyulangone_*`; `builtins.today`
+#   is supplied by the runner.
 
 steps:
   # --- accept terms modal, then fill form ---------------------------------
@@ -48,7 +50,7 @@ steps:
     value: "{{ address_and_contact.primary_address.postal_code }}"
   - select: "How did you hear about NYU Langone?"
     selector: "#OriginalSource"
-    value: "Online Job Board"
+    value: "{{ app_answers.referral_source }}"
   - click: "NEXT"
     wait_after: 3
 
@@ -59,15 +61,15 @@ steps:
   # "Post Graduate Degree" | "Doctoral Degree"
   - select: "Highest Level of Education"
     selector: "#ResumeColumn4"
-    value: "{{ answers.nyulangone_highest_education }}"
+    value: "{{ app_answers.highest_education }}"
   - select: "School"
     selector: "#ResumeColumn1"
-    value: "{{ answers.nyulangone_school }}"
+    value: "{{ app_answers.school }}"
   # Valid values: "Bachelor Of Science" | "Master Of Science - M S" | "Master Of Arts" |
   # "Doctor Of Philosophy  - D Phil" | "Bachelor Of Arts" | "Associate Of Arts" | etc.
   - select: "Degree"
     selector: "#ResumeColumn2"
-    value: "{{ answers.nyulangone_degree }}"
+    value: "{{ app_answers.degree }}"
   # Use exact option text. Common values: "No License/Cert" | "N/A" |
   # "Council of Clin Research Coord(30143)" | "Basic Life Support Cert(30017)" | etc.
   - select: "License & Certs"
@@ -75,7 +77,7 @@ steps:
     value: "{{ answers.license_cert }}"
   - fill: "Desired Salary"
     selector: "#Salary"
-    value: "{{ answers.desired_salary }}"
+    value: "{{ app_answers.desired_salary }}"
   - pick:
       field: "Were you ever an employee or a volunteer at"
       as: select
@@ -107,7 +109,7 @@ steps:
   - pick:
       group: "What is your gender?"
       scope: 'input[type=radio][name="GenderPlus"]'
-      source: answers.gender
+      source: app_answers.gender
       map:
         Male: "Male"
         Female: "Female"
@@ -116,7 +118,7 @@ steps:
   - pick:
       group: "What is your race/ethnicity?"
       scope: 'input[type=radio][name="Race"]'
-      source: answers.race_ethnicity
+      source: app_answers.race_ethnicity
       map:
         "Hispanic or Latino": "Hispanic or Latino"
         "White": "White (Not Hispanic or Latino)"
@@ -148,7 +150,7 @@ steps:
   - pick:
       group: "Pre-Offer Invitation to Self-Identify as a Protected Veteran"
       scope: 'input[type=radio][name="VeteranStatus"]'
-      source: answers.is_veteran
+      source: app_answers.is_veteran
       map:
         true: "I Identify As One Or More Of The Classifications Of Protected Veteran Listed Above"
         false: "I Am Not a Protected Veteran"
@@ -156,5 +158,5 @@ steps:
 
   # --- captcha and submit -----------------------------------------------------
   # Browser must be visible (no --headless). Complete the reCAPTCHA manually
-  # during the pause, then the playbook will continue.
-  - sleep: 30
+  # during the pause. Final submission remains manual.
+  - sleep: 120

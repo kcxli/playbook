@@ -1,6 +1,7 @@
 version: 1
 name: "UTHealth Taleo Application"
 job_id: "260000AU"
+employer_key: "uthealth"
 url: "https://uth.taleo.net/careersection/jobapply.ftl?job=260000AU"
 
 # Template paths reference the applicant data file (see applicants/example.json):

@@ -56,6 +56,8 @@ class Playbook:
     name: str
     url: str | None
     job_id: str | None
+    employer_key: str | None
+    application_key: str | None
     steps: list[Step]
     raw: dict[str, Any]
 
@@ -78,10 +80,14 @@ def load_playbook(path: str) -> Playbook:
         raise PlaybookError(f"{path}: 'steps' must be a non-empty list")
 
     steps = [_parse_step(item, idx) for idx, item in enumerate(raw_steps, start=1)]
+    employer_key = doc.get("employer_key")
+    application_key = employer_key or doc.get("application_key") or doc.get("site_key")
     return Playbook(
         name=doc.get("name", Path(path).stem),
         url=doc.get("url"),
         job_id=doc.get("job_id"),
+        employer_key=employer_key,
+        application_key=application_key,
         steps=steps,
         raw=doc,
     )
