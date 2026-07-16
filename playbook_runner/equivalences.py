@@ -56,11 +56,19 @@ _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 _SALARY_AMOUNT_RE = re.compile(
     r"(?<![a-z0-9])(?:[$€£]\s*)?(\d+(?:[,\s]\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*([kK]))?"
 )
-_DEFAULT_CUSTOM_EQUIVALENCES_PATH = (
+_PACKAGED_EQUIVALENCES_PATH = (
+    Path(__file__).resolve().parent / "data" / "default_equivalences.json"
+)
+_SOURCE_CUSTOM_EQUIVALENCES_PATH = (
     Path(__file__).resolve().parent.parent / "information" / "custom_equivalences.json"
 )
 _CUSTOM_EQUIVALENCES_PATH = Path(
-    os.environ.get("PLAYBOOK_CUSTOM_EQUIVALENCES") or _DEFAULT_CUSTOM_EQUIVALENCES_PATH
+    os.environ.get("PLAYBOOK_CUSTOM_EQUIVALENCES")
+    or (
+        _SOURCE_CUSTOM_EQUIVALENCES_PATH
+        if _SOURCE_CUSTOM_EQUIVALENCES_PATH.exists()
+        else Path.cwd() / "information" / "custom_equivalences.json"
+    )
 )
 
 
@@ -808,6 +816,25 @@ _STATE.update(_alias_map({
     ]
 }))
 
+
+def state_abbreviation(value: Any) -> str | None:
+    """Return the canonical postal code for a known state or province."""
+    wanted = normalize(value)
+    if not wanted:
+        return None
+    rows = {
+        **_US_STATES_RAW,
+        **_US_TERRITORIES_RAW,
+        **_MILITARY_STATE_CODES_RAW,
+        **_CANADIAN_PROVINCES_RAW,
+    }
+    for code, name in rows.items():
+        if wanted in {normalize(code), normalize(name)}:
+            return code
+    if wanted in {"nf", "newfoundland"}:
+        return "NL"
+    return None
+
 _GROUPS = {
     "yes_no": _YES_NO,
     "decline": _DECLINE,
@@ -892,6 +919,10 @@ def custom_equivalences_path() -> Path:
 
 def known_equivalence_groups() -> list[str]:
     return sorted(_GROUPS)
+
+
+def known_context_hint_groups() -> list[str]:
+    return sorted(_CONTEXT_HINTS)
 
 
 def active_groups_for_context(context: str | None) -> list[str]:
@@ -1336,4 +1367,6 @@ def _token_subset(want: str, cand: str) -> bool:
     return want_tokens <= cand_tokens or cand_tokens <= want_tokens
 
 
-_apply_custom_equivalences()
+_apply_custom_equivalences(_PACKAGED_EQUIVALENCES_PATH)
+if _CUSTOM_EQUIVALENCES_PATH.resolve() != _PACKAGED_EQUIVALENCES_PATH.resolve():
+    _apply_custom_equivalences(_CUSTOM_EQUIVALENCES_PATH)

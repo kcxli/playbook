@@ -3,6 +3,17 @@ name: "UC Santa Barbara - Lecturer Recruitment Pool in Statistics and Applied Pr
 job_id: "JPF03088"
 employer_key: "ucsb"
 url: "https://recruit.ap.ucsb.edu/JPF03088"
+listing:
+  institution: "University of California, Santa Barbara"
+  title: "Lecturer Pool in Statistics and Applied Probability"
+  department: "Statistics and Applied Probability"
+  field: "Statistics and Applied Probability"
+  category: "faculty"
+  rank: ["lecturer"]
+  tenure: "non_tenure_track"
+  state: "california"
+intake:
+  key: "ucsb"
 
 # =============================================================================
 # UC RECRUIT (AP Recruit) - applicant flow for UCSB JPF03088
@@ -106,20 +117,20 @@ steps:
   # --- Degree ----------------------------------------------------------------
   - fill: "Highest degree"
     selector: "#applicant_application_attributes_highest_degree_attributes_name"
-    value: "{{ answers.degree }}"
+    value: "{{ app_answers.degree }}"
   - select: "Institution"
     selector: "#applicant_application_attributes_highest_degree_attributes_institution"
-    value: "{{ answers.school }}"
+    value: "{{ app_answers.school }}"
     optional: true
   - fill: "Date obtained"
     selector: "#applicant_application_attributes_highest_degree_attributes_date"
-    value: "{{ answers.degree_year_acquired }}"
+    value: "{{ app_answers.degree_year_acquired }}"
     optional: true
   # Degree disciplines is a typeahead/multi-select on UC Recruit. The exact
   # selector/options should be confirmed with the extractor in the UCSB session.
   - press: "Degree disciplines"
     selector: "xpath=//*[contains(normalize-space(.), 'Degree disciplines')]/following::*[@role='combobox' or self::input][1]"
-    value: "{{ answers.degree_discipline }}, Enter"
+    value: "{{ app_answers.degree_discipline }}, Enter"
     optional: true
     wait_after: 1
   - click: "Next: Employment"
@@ -128,18 +139,18 @@ steps:
   # --- Employment ------------------------------------------------------------
   - select: "Affiliation or University"
     selector: "#applicant_affiliation"
-    value: "{{ answers.current_organization }}"
+    value: "{{ app_answers.current_organization }}"
     optional: true
   - fill: "Job title"
     selector: "#applicant_current_job_title"
-    value: "{{ answers.current_title }}"
+    value: "{{ app_answers.current_title }}"
   - click: "Next: Search Sources"
     wait_after: 2
 
   # --- Search Sources --------------------------------------------------------
   # Search-source option ids are campus/posting specific. Label matching may work
   # if "UCSB website" is present; otherwise capture this page and replace it.
-  - check: "{{ answers.search_source }}"
+  - check: "{{ app_answers.search_source }}"
     optional: true
   - click: "Next: Review"
     wait_after: 2
@@ -171,3 +182,5 @@ steps:
   # Intentionally disabled. Enable only after a human reviews the completed form.
   # - click: "Submit application"
   #   wait_after: 3
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

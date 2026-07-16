@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from typing import Any
 
 import yaml
@@ -16,10 +17,11 @@ class PlaybookError(Exception):
 ACTION_KEYS = {"open", "click", "fill", "select", "check", "upload", "pick",
                "sleep", "script", "press", "wait_for", "scroll", "hover",
                "await_email_link", "await_email_code", "search_dialog",
-               "ai_fill_page"}
+               "pause_for_user"}
 # Keys allowed alongside the action verb.
 MODIFIER_KEYS = {"when", "selector", "optional", "role", "group", "value",
                  "wait_after", "label", "exact", "scope", "timeout"}
+_PLACEHOLDER_RE = re.compile(r"(?<![A-Z0-9_])(?:TODO|TBD|REPLACE_ME)(?![A-Z0-9_])", re.I)
 
 
 @dataclass
@@ -63,7 +65,7 @@ class Playbook:
 
 
 def load_playbook(path: str) -> Playbook:
-    text = Path(path).read_text()
+    text = Path(path).read_text(encoding="utf-8")
     try:
         doc = yaml.safe_load(text)
     except yaml.YAMLError as exc:
@@ -109,6 +111,10 @@ def _parse_step(item: Any, index: int) -> Step:
     if unknown:
         raise PlaybookError(f"step #{index} ({kind}): unknown keys {sorted(unknown)}")
 
+    for key in ("optional", "exact"):
+        if key in item and not isinstance(item[key], bool):
+            raise PlaybookError(f"step #{index} ({kind}): '{key}' must be true or false")
+
     step = Step(
         kind=kind,
         when=item.get("when"),
@@ -131,8 +137,6 @@ def _parse_step(item: Any, index: int) -> Step:
         step.config = _parse_email_cfg(item["await_email_link"], index)
     elif kind == "await_email_code":
         step.config = _parse_email_code_cfg(item["await_email_code"], index)
-    elif kind == "ai_fill_page":
-        step.config = _parse_ai_fill_page_cfg(item["ai_fill_page"], index)
     else:
         step.target = item[kind]
 
@@ -232,60 +236,6 @@ def _parse_email_code_cfg(cfg: Any, index: int) -> dict[str, Any]:
     }
 
 
-def _parse_ai_fill_page_cfg(cfg: Any, index: int) -> dict[str, Any]:
-    """Validate an AI-assisted visible-page fill step.
-
-    The model receives a page snapshot plus selected applicant-profile values and
-    may return only ordinary safe playbook actions. Final submit-like actions are
-    still blocked by the AI recovery layer.
-    """
-    if cfg is None:
-        cfg = {}
-    if not isinstance(cfg, dict):
-        raise PlaybookError(
-            f"step #{index} (ai_fill_page): value must be a mapping "
-            f"(allowed_sources:/max_actions:/instructions: ...)"
-        )
-    allowed = {"allowed_sources", "max_actions", "instructions", "min_confidence"}
-    unknown = set(cfg) - allowed
-    if unknown:
-        raise PlaybookError(
-            f"step #{index} (ai_fill_page): unknown keys {sorted(unknown)}; "
-            f"allowed: {sorted(allowed)}"
-        )
-    sources = cfg.get("allowed_sources")
-    if sources is not None and (
-        not isinstance(sources, list) or not all(isinstance(item, str) for item in sources)
-    ):
-        raise PlaybookError(
-            f"step #{index} (ai_fill_page): allowed_sources must be a list of data-path strings"
-        )
-    max_actions = cfg.get("max_actions", 12)
-    try:
-        max_actions = int(max_actions)
-    except (TypeError, ValueError) as exc:
-        raise PlaybookError(f"step #{index} (ai_fill_page): max_actions must be an integer") from exc
-    if max_actions < 1 or max_actions > 30:
-        raise PlaybookError(f"step #{index} (ai_fill_page): max_actions must be between 1 and 30")
-    min_confidence = cfg.get("min_confidence")
-    if min_confidence is not None:
-        try:
-            min_confidence = float(min_confidence)
-        except (TypeError, ValueError) as exc:
-            raise PlaybookError(
-                f"step #{index} (ai_fill_page): min_confidence must be a number"
-            ) from exc
-    instructions = cfg.get("instructions")
-    if instructions is not None and not isinstance(instructions, str):
-        raise PlaybookError(f"step #{index} (ai_fill_page): instructions must be a string")
-    return {
-        "allowed_sources": sources,
-        "max_actions": max_actions,
-        "min_confidence": min_confidence,
-        "instructions": instructions,
-    }
-
-
 def _norm_key(key: Any) -> Any:
     """Normalize map keys so YAML true/false/null and strings all match."""
     if isinstance(key, bool) or key is None:
@@ -316,13 +266,56 @@ def _validate_step(step: Step, index: int) -> None:
             f"step #{index} ({step.kind}): target must be a label/text string "
             f"(e.g. {step.kind}: \"Apply Now\")"
         )
+    if step.kind == "pause_for_user" and not isinstance(step.target, str):
+        raise PlaybookError(
+            f"step #{index} (pause_for_user): target must be an instruction string"
+        )
     if step.kind == "await_email_code" and not (step.config.get("field") or step.selector):
         raise PlaybookError(
             f"step #{index} (await_email_code): requires field: or selector: "
             "so the extracted code can be filled"
         )
+    for field_name, value in (
+        ("target", step.target),
+        ("value", step.value),
+        ("selector", step.selector),
+        ("group", step.group),
+        ("scope", step.scope),
+        ("pick", step.pick),
+        ("config", step.config),
+    ):
+        if _contains_placeholder(value):
+            raise PlaybookError(
+                f"step #{index} ({step.kind}): {field_name} contains an unresolved placeholder"
+            )
+    if step.wait_after is not None:
+        try:
+            wait_after = float(step.wait_after)
+        except (TypeError, ValueError) as exc:
+            raise PlaybookError(
+                f"step #{index} ({step.kind}): 'wait_after' must be seconds (number)"
+            ) from exc
+        if wait_after < 0:
+            raise PlaybookError(f"step #{index} ({step.kind}): 'wait_after' cannot be negative")
     if step.timeout is not None:
         try:
-            int(step.timeout)
-        except (TypeError, ValueError):
-            raise PlaybookError(f"step #{index} ({step.kind}): 'timeout' must be milliseconds (integer)")
+            timeout = int(step.timeout)
+        except (TypeError, ValueError) as exc:
+            raise PlaybookError(
+                f"step #{index} ({step.kind}): 'timeout' must be milliseconds (integer)"
+            ) from exc
+        if isinstance(step.timeout, bool) or timeout <= 0:
+            raise PlaybookError(f"step #{index} ({step.kind}): 'timeout' must be positive")
+
+
+def _contains_placeholder(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(_PLACEHOLDER_RE.search(value))
+    if isinstance(value, dict):
+        return any(
+            _contains_placeholder(key) or _contains_placeholder(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, (list, tuple)):
+        return any(_contains_placeholder(item) for item in value)
+    return False

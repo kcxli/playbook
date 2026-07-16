@@ -4,17 +4,21 @@ Use this document when opening a fresh AI/Codex/Claude prompt to draft or debug 
 new playbook. Paste or attach it together with the relevant extractor output and,
 for failures, the targeted `shots/<site>/error-step-###/` folder.
 
+The AI in this document's title refers only to offline maintainer assistance.
+The former runtime AI recovery experiment was sunset and removed.
+
 ## Project Goal
 
 `project-playbook` fills job applications with deterministic Playwright actions.
-AI may help draft playbooks or inspect failure artifacts, but normal application
-runs should not need AI in the loop.
+AI may help a maintainer draft playbooks or inspect failure artifacts, but the
+runner never calls an AI model during an application.
 
 The runner combines:
 
 - one structured applicant profile,
 - reusable application defaults,
 - employer-specific exceptions,
+- target-scoped position overrides,
 - deterministic option equivalences,
 - one YAML playbook per application workflow.
 
@@ -31,7 +35,9 @@ truly unique to that site.
    possible. If an AI drafting assistant is used, give it the extractor output
    plus this document.
 5. Review every `TODO`, custom widget, modal, hidden field, and commented button.
-6. Keep final submit/certify buttons commented until a human is ready to submit.
+6. Keep the final submit action inactive and end the playbook with
+   `pause_for_user`; the applicant performs the final click in the visible
+   browser.
 7. Validate before running:
 
 ```bash
@@ -78,16 +84,21 @@ from, weakest to strongest:
 1. derived canonical facts,
 2. legacy `answers.*`,
 3. `application_defaults`,
-4. `application_exceptions.<employer_key>`.
+4. `application_exceptions.<employer_key>`,
+5. nonblank `position_overrides` for the current target.
 
-Use prefixed `answers.*` only for true site/platform oddities:
+ATS-specific labels for reusable facts are also generated under `app_answers`:
 
 ```yaml
-value: "{{ answers.ua_referral_source }}"
-value: "{{ answers.nyulangone_degree }}"
-value: "{{ answers.cuhk_publication_type }}"
-value: "{{ answers.interfolio_discipline }}"
+value: "{{ app_answers.ua_referral_source }}"
+value: "{{ app_answers.nyulangone_degree }}"
+value: "{{ app_answers.cuhk_publication_type }}"
+value: "{{ app_answers.interfolio_discipline }}"
 ```
+
+Use `position_overrides.*` only for a fact that can change for one listed job.
+Reserve direct `answers.*` for protected runtime checkpoints such as government
+IDs or criminal-history responses.
 
 For made-up account values, such as site usernames that must be generated per
 run, use a playbook `generated_values` entry and fill the field from the same
@@ -166,7 +177,8 @@ so future playbooks benefit without per-site overrides.
 - Use `scope` for repeated yes/no groups so the runner clicks the correct group.
 - Use `upload` for file inputs and canonical document paths.
 - Use `wait_for` when the next page/section loads asynchronously.
-- Keep final submit, certify, withdraw, delete, and payment-like actions commented.
+- Keep final submit, withdraw, delete, and payment-like actions inactive. End a
+  maintained playbook with `pause_for_user`.
 - Do not invent sensitive answers. If a sensitive answer is missing, leave a TODO
   or require an applicant-specific value.
 - Do not add felony, SSN, government ID, banking, payment, or final attestation
@@ -247,18 +259,17 @@ Yale/Interfolio lessons:
   `Apply Now` while the page URL was `about:blank`; that points to a navigation or
   start-state issue, not an equivalence mismatch.
 
-Current Interfolio-specific answer keys seen in the fake profiles/playbook:
+Current Interfolio labels derived from reusable profile data:
 
 ```text
-answers.interfolio_state
-answers.interfolio_position_status
-answers.interfolio_referral_source
-answers.interfolio_discipline
+app_answers.interfolio_state
+app_answers.interfolio_position_status
+app_answers.interfolio_referral_source
+app_answers.interfolio_discipline
 ```
 
-When drafting future Interfolio playbooks, prefer migrating reusable values to
-`app_answers.*` where they have normal application meaning. Keep only true
-Interfolio/platform setup values under `answers.interfolio_*`.
+Future Interfolio playbooks should keep using these generated values; do not ask
+the applicant to re-enter them for each position.
 
 ## Fresh Prompt Template
 
@@ -269,10 +280,12 @@ You are drafting a project-playbook YAML playbook. First read
 docs/ai-playbook-drafting-context.md, SPEC.md, docs/application-answer-system.md,
 and the form-extractor output I provide. Draft deterministic Playwright steps;
 do not rely on AI at runtime. Use canonical profile paths for applicant facts,
-app_answers.* for reusable application answers, and prefixed answers.* only for
-true site-specific values. Preserve stable selectors from the extractor, use
-pick with scope for repeated choice groups, keep final submit commented, and
-leave TODOs instead of inventing sensitive or missing answers.
+app_answers.* for reusable application answers, position_overrides.* only for
+true target-specific values, and direct answers.* only for protected runtime
+checkpoints. Preserve stable selectors from the extractor, use
+pick with scope for repeated choice groups, keep final submission inactive, end
+with pause_for_user, and leave TODOs instead of inventing sensitive or missing
+answers.
 ```
 
 ## Key Files
@@ -287,9 +300,10 @@ leave TODOs instead of inventing sensitive or missing answers.
 - [`tools/accept_equivalence_gap.py`](../tools/accept_equivalence_gap.py): promotes
   confirmed option aliases from failed runs.
 - [`information/test.json`](../information/test.json): canonical blank profile
-  schema.
+  template and contract fixture.
+- [`playbook_runner/data/default_equivalences.json`](../playbook_runner/data/default_equivalences.json):
+  shared option aliases shipped with the runner.
 - [`information/custom_equivalences.json`](../information/custom_equivalences.json):
-  learned shared option aliases.
-- [`past_attempts/`](../past_attempts/): archived experiments, including the
-  terminal draft generator and AI runtime recovery/copilot. These are reference
-  material, not the active workflow.
+  local confirmed aliases layered over the shipped defaults.
+- Runtime AI recovery and the old live-page wizard are retired. Git history is
+  the archive; neither belongs in the active runner package.

@@ -3,10 +3,17 @@ name: "UTHealth Taleo Application"
 job_id: "260000AU"
 employer_key: "uthealth"
 url: "https://uth.taleo.net/careersection/jobapply.ftl?job=260000AU"
+listing:
+  institution: "UTHealth Houston"
+  title: "Position 260000AU"
+  category: "faculty"
+  state: "texas"
+intake:
+  key: "uthealth"
 
 # Template paths reference the applicant data file (see applicants/example.json):
 #   person_name.*, address_and_contact.*, emails.*, documents.* come from the
-#   rich profile; site-specific answers live under `answers.*`; the Taleo login
+#   rich profile; position overrides are folded into `app_answers.*`; the Taleo login
 #   lives under `account.*`; `builtins.today` is supplied by the runner.
 
 steps:
@@ -62,7 +69,7 @@ steps:
   - select: "State/Province"
     value: "{{ address_and_contact.primary_address.state_province }}"
   - select: "Region"
-    value: "{{ answers.uthealth_region }}"
+    value: "{{ app_answers.uthealth_region }}"
 
   - select: "Primary Number"
     value: "Cellular Phone"
@@ -81,13 +88,13 @@ steps:
   - pick:
       field: "Are you related by blood or marriage to any employee of UTHealth or UT System Board of Regents?"
       as: select
-      source: answers.related_to_uthealth_employee
+      source: app_answers.related_to_uthealth_employee
       map: { true: "Yes", false: "No" }
 
   - pick:
       field: "Have you ever been or are you currently employed by UTHealth?"
       as: select
-      source: answers.previously_employed_by_uthealth
+      source: app_answers.previously_employed_by_uthealth
       map: { true: "Yes", false: "No" }
 
   - click: "Save and Continue"
@@ -107,16 +114,16 @@ steps:
   # 1=Hispanic/Latino, 2=Race, 3=Protected Veteran (stable id suffix order).
   - select: "Gender"
     selector: 'select[id*="diversityBlock"][id$="-0-questionSingleList"]'
-    value: "{{ answers.gender }}"
+    value: "{{ app_answers.gender }}"
   - select: "Hispanic or Latino"
     selector: 'select[id*="diversityBlock"][id$="-1-questionSingleList"]'
-    value: "{{ answers.is_hispanic_or_latino }}"
+    value: "{{ app_answers.is_hispanic_or_latino }}"
   - select: "Race / ethnicity"
     selector: 'select[id*="diversityBlock"][id$="-2-questionSingleList"]'
-    value: "{{ answers.ethnicity }}"
+    value: "{{ app_answers.ethnicity }}"
   - select: "Protected Veteran"
     selector: 'select[id*="diversityBlock"][id$="-3-questionSingleList"]'
-    value: "{{ answers.protected_veteran }}"
+    value: "{{ app_answers.protected_veteran }}"
   - click: "Save and Continue"
 
   # --- disability self-identification (CC-305) ---------------------------
@@ -138,27 +145,27 @@ steps:
   # options; they're told apart only by the group name suffix -0-qr .. -4-qr.
   - pick:                                   # 1. B. veteran with a disability
       scope: 'input[type=radio][name$="-0-qr"]'
-      source: answers.veteran_with_disability
+      source: app_answers.veteran_with_disability
       map: { true: "Yes", false: "No" }
       default: "I do not wish to provide this information"
   - pick:                                   # 2. C. surviving spouse of a veteran
       scope: 'input[type=radio][name$="-1-qr"]'
-      source: answers.surviving_spouse_of_veteran
+      source: app_answers.surviving_spouse_of_veteran
       map: { true: "Yes", false: "No" }
       default: "I do not wish to provide this information"
   - pick:                                   # 3. D. orphan of a veteran
       scope: 'input[type=radio][name$="-2-qr"]'
-      source: answers.orphan_of_veteran
+      source: app_answers.orphan_of_veteran
       map: { true: "Yes", false: "No" }
       default: "I do not wish to provide this information"
   - pick:                                   # 4. E. former foster child
       scope: 'input[type=radio][name$="-3-qr"]'
-      source: answers.former_foster_child
+      source: app_answers.former_foster_child
       map: { true: "Yes", false: "No" }
       default: "I do not wish to provide this information"
   - pick:                                   # 5. F. I identify as a Veteran
       scope: 'input[type=radio][name$="-4-qr"]'
-      source: answers.is_veteran
+      source: app_answers.is_veteran
       map: { true: "Yes", false: "No" }
       default: "I do not wish to provide this information"
   - click: "Save and Continue"
@@ -168,3 +175,5 @@ steps:
   #   value: "{{ person_name.legal_name.first }} {{ person_name.legal_name.last }}"
   # - click: "Save and Continue"
   # - click: "Submit"
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

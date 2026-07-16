@@ -3,6 +3,14 @@ name: "Yale Application Senior Lecturer"
 job_id: "185331"
 employer_key: "yale"
 url: "https://apply.interfolio.com/185331"
+listing:
+  institution: "Yale University"
+  title: "Senior Lecturer"
+  category: "faculty"
+  rank: ["lecturer"]
+  state: "connecticut"
+intake:
+  key: "yale"
 
 steps:
   # --- landing page -----------------------------------------------------------
@@ -44,13 +52,13 @@ steps:
   # "Medical Student" | "Undergraduate/Pre-med" | "Alternative Academic Career" | "Other"
   - select: "I am..."
     selector: "#position-status"
-    value: "{{ answers.interfolio_position_status }}"
+    value: "{{ app_answers.interfolio_position_status }}"
   # Valid values: "A Professional or Academic Organization" | "My Advisor, Professor, or Mentor" |
   # "My Colleague, Peer, or Friend" | "My Institution" | "Social Media" |
   # "An Article, Blog, or Online Forum" | "Podcast" | "Other"
   - select: "How did you hear about us?"
     selector: "#how-did-you-hear"
-    value: "{{ answers.interfolio_referral_source }}"
+    value: "{{ app_answers.interfolio_referral_source }}"
   - click: "Close Alert"
     selector: ".intf-static-banner-close.intf-btn"
     optional: true
@@ -88,7 +96,7 @@ steps:
   # control, type the abbreviation, confirm with Enter.
   - press: "Select state"
     selector: "#state"
-    value: "{{ answers.interfolio_state }}, Enter"
+    value: "{{ app_answers.interfolio_state }}, Enter"
     wait_after: 1
   # The mat-select panel can linger open; its cdk-overlay-backdrop then
   # intercepts every later click. Dismiss it by clicking the backdrop.
@@ -100,28 +108,28 @@ steps:
   # Highest Degree Earned is an intf-fis-combobox: type to filter, click option.
   - fill: "Highest Degree Earned"
     selector: "#degree"
-    value: "{{ answers.degree }}"
+    value: "{{ app_answers.interfolio_degree }}"
     wait_after: 1
-  - click: "{{ answers.degree }}"
+  - click: "{{ app_answers.interfolio_degree }}"
     role: option
     wait_after: 1
   - fill: "Institution"
     selector: "#institution"
-    value: "{{ answers.school }}"
+    value: "{{ app_answers.school }}"
   - fill: "Date Earned"
     selector: "#date-earned"
-    value: "{{ answers.degree_date_earned }}"
+    value: "{{ app_answers.degree_date_earned }}"
   - fill: "Current Title"
     selector: "#current-title"
-    value: "{{ answers.current_title }}"
+    value: "{{ app_answers.current_title }}"
   # Organization is a free-text combobox ("...or enter the name of your
   # organization"). Type it, click a matching option if one appears, else
   # Enter commits the free-text value.
   - fill: "Organization"
     selector: "#organization"
-    value: "{{ answers.current_organization }}"
+    value: "{{ app_answers.current_organization }}"
     wait_after: 1
-  - click: "{{ answers.current_organization }}"
+  - click: "{{ app_answers.current_organization }}"
     role: option
     optional: true
     wait_after: 1
@@ -139,7 +147,7 @@ steps:
   # "Medicine / Health Professions" | "Government" | "Education" | "Other"
   - select: "Discipline"
     selector: "#scholarly-discipline"
-    value: "{{ answers.interfolio_discipline }}"
+    value: "{{ app_answers.interfolio_discipline }}"
   - check: "Apply to jobs in higher education"
     selector: "#dossier-usage-ids-3"
   - check: "Search for jobs"
@@ -279,13 +287,13 @@ steps:
   # See dropdown options above for full list.
   - select: "Highest Degree Earned"
     selector: "#degree-select"
-    value: "{{ answers.degree }}"
+    value: "{{ app_answers.interfolio_degree }}"
   - fill: "Institution"
     selector: "#receiving-institution"
-    value: "{{ answers.school }}"
+    value: "{{ app_answers.school }}"
   - fill: "Date Earned"
     selector: '[name*="datepicker-input"]'
-    value: "{{ answers.degree_year_acquired }}"
+    value: "{{ app_answers.degree_year_acquired }}"
   - click: "Next"
     selector: ".push-right-xs.intf-btn"
     wait_after: 3
@@ -303,7 +311,7 @@ steps:
   - pick:
       group: "Gender"
       scope: 'input[type=radio][name="mc-145252"]'
-      source: answers.gender
+      source: app_answers.gender
       map:
         Female: "Female"
         Male: "Male"
@@ -314,7 +322,7 @@ steps:
   - pick:
       group: "Hispanic or Latino"
       scope: 'input[type=radio][name="mc-145253"]'
-      source: answers.is_hispanic_or_latino
+      source: app_answers.is_hispanic_or_latino
       map:
         true: "I am Hispanic / Latino/a"
         false: "I am not Hispanic / Latino/a"
@@ -323,22 +331,22 @@ steps:
   # Race — check all that apply
   - check: "American Indian or Alaskan Native"
     selector: "#chk-145254-0"
-    when: '"American Indian or Alaska Native" in answers.race_ethnicity'
+    when: '"American Indian or Alaska Native" in app_answers.race_ethnicity'
   - check: "Asian"
     selector: "#chk-145254-1"
-    when: '"Asian" in answers.race_ethnicity'
+    when: '"Asian" in app_answers.race_ethnicity'
   - check: "Black or African American"
     selector: "#chk-145254-2"
-    when: '"Black or African American" in answers.race_ethnicity'
+    when: '"Black or African American" in app_answers.race_ethnicity'
   - check: "Native Hawaiian or Other Pacific Islander"
     selector: "#chk-145254-3"
-    when: '"Native Hawaiian or Pacific Islander" in answers.race_ethnicity'
+    when: '"Native Hawaiian or Pacific Islander" in app_answers.race_ethnicity'
   - check: "White/Caucasian"
     selector: "#chk-145254-4"
-    when: '"White" in answers.race_ethnicity'
+    when: '"White" in app_answers.race_ethnicity'
   - check: "I do not want to answer"
     selector: "#chk-145254-5"
-    when: 'answers.race_ethnicity == null or answers.race_ethnicity == ""'
+    when: 'app_answers.race_ethnicity == null or app_answers.race_ethnicity == ""'
 
   # Disability (CC-305)
   - pick:
@@ -354,7 +362,7 @@ steps:
   - pick:
       group: "Veteran"
       scope: 'input[type=radio][name="mc-145266"]'
-      source: answers.is_veteran
+      source: app_answers.is_veteran
       map:
         true: "I identify as one or more of the classifications of protected veteran"
         false: "I am not a protected veteran"
@@ -366,6 +374,8 @@ steps:
 
   # --- review & submit --------------------------------------------------------
   # URL: ?section=review
-  # Uncomment when ready to submit for real:
+  # Reference only. Keep inactive while final submission is human-controlled:
   # - click: "Submit Delivery"
   #   selector: ".push-right-xs.intf-btn"
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

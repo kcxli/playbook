@@ -1,6 +1,13 @@
 Job auto-apply tools: research notes for project-playbook
 Research date: 2026-06-22
 
+Status note
+-----------
+This is historical product research, not the current architecture or runtime
+specification. README.md and docs/project-exchange-integration.md are the source
+of truth. In particular, runtime AI recovery was tried and sunset; current runs
+are deterministic, and final submission requires a human click during testing.
+
 Purpose
 -------
 This note summarizes how products such as Simplify, LazyApply, LoopCV,
@@ -439,7 +446,7 @@ This repo is stronger than many toy auto-apply bots in these ways:
   custom widgets
 - email-link and email-code handling for real authentication flows
 - targeted failure artifacts
-- final submit disabled by convention
+- explicit pause_for_user gate with final submission performed by the applicant
 
 This repo is weaker than commercial tools in these ways:
 
@@ -504,7 +511,7 @@ Start with the platforms already represented here:
 Adapters do not need to hide YAML; they can generate better YAML and selector
 recommendations from extractor output.
 
-8. Keep final submit disabled by default.
+8. Keep final submission human-controlled during testing.
 
 This is a product advantage, not a limitation. It protects accuracy and keeps
 the tool in the "assistive automation" lane.
@@ -576,4 +583,3 @@ https://github.com/berellevy/job_app_filler
 https://github.com/lovincyrus/job-autofiller
 https://github.com/GodsScion/Auto_job_applier_linkedIn
 https://github.com/nicolomantini/LinkedIn-Easy-Apply-Bot
-

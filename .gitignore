@@ -2,10 +2,20 @@
 node_modules/
 __pycache__/
 *.pyc
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 .DS_Store
 shots/
 .run/
+extracts/
 
 # Local secrets — IMAP app passwords, etc. Never commit.
 .env*
+!.env.example
 *.secret.json

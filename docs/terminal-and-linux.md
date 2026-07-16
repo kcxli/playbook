@@ -4,6 +4,10 @@ A focused, copy-pasteable reference. Everything here uses *this project's* real
 paths and commands, so you learn by doing the actual work. Read top to bottom
 once; after that, use it as a cheatsheet.
 
+This guide is for maintainers and the current standalone test runner. Future
+Project Exchange applicants will use the web interface plus an installed local
+companion; they will not clone this repository or run terminal commands.
+
 > **macOS vs Linux:** your laptop (macOS) and the server (Linux) share the same
 > terminal basics — the commands below work on both. Where they differ (mostly
 > installing system software) it's called out.
@@ -19,9 +23,9 @@ commands answer "where am I and what's here":
 pwd                 # "print working directory" — the folder you're in
 ls                  # list files here
 ls -la              # list ALL (incl. hidden .files), long format (sizes, dates)
-cd project-playbook # "change directory" — move INTO a folder
+cd /path/to/playbook # "change directory" — move into this repository
 cd ..               # move UP one folder (.. means "parent")
-cd ~                # go to your home folder (~ means /Users/kateli)
+cd ~                # go to your home folder
 cd -                # jump back to the previous folder
 ```
 
@@ -30,8 +34,8 @@ cd -                # jump back to the previous folder
 | Path | Means |
 |------|-------|
 | `applicants/test.json` | *relative* — from where you currently are |
-| `/Users/kateli/Desktop/project-playbook` | *absolute* — full path from the root `/` |
-| `~/Desktop/project-playbook` | `~` = your home, so same as above |
+| `/Users/you/code/playbook` | *absolute* — full path from the root `/` |
+| `~/code/playbook` | `~` = your home, so same location in shorter form |
 | `.` | the current folder |
 | `..` | the parent folder |
 
@@ -136,7 +140,7 @@ cat applicants/test.json | grep email   # show only lines containing "email"
 **Redirection `>` and `>>`** sends output to a file instead of the screen:
 
 ```bash
-.venv/bin/python -m playbook_runner wizard "<url>" > draft.yaml   # write (overwrite)
+python3 tools/draft_playbook.py -x extract.txt --out draft.playbook.yaml
 some_command >> log.txt        # append to a file
 some_command 2> errors.txt     # send only errors (stderr) to a file
 ```
@@ -189,12 +193,18 @@ sudo apt install python3-venv  # install a system package
 when a command genuinely needs system-level access (installing software, etc.).
 
 ### Headless: there's no screen on a server
-A server has no display, so the browser can't pop open a window. Always pass
-`--headless` there:
+A server has no display, so it can run validation and automated diagnostics but
+cannot satisfy the current human-review gate. All maintained playbooks end with
+`pause_for_user`, and a live `--headless` run is rejected. Validation still
+works normally:
 
 ```bash
-.venv/bin/python -m playbook_runner playbooks/x.playbook.yaml -d data.json --headless
+.venv/bin/python -m playbook_runner playbooks/x.playbook.yaml -d data.json --validate
 ```
+
+The planned production design runs the visible Playwright browser through a
+signed companion on each applicant's computer. See
+[project-exchange-integration.md](project-exchange-integration.md).
 
 ### Keeping a long job running after you log off
 If you close the SSH session, your command normally dies with it. To keep it

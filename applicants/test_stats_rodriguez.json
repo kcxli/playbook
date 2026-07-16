@@ -209,6 +209,42 @@
       "email": "lillian.park.test@example.edu",
       "phone": "4125550184",
       "years_known": 9
+    },
+    {
+      "name": "Dr. Martin Keller",
+      "relationship": "Department chair",
+      "company": "University of Texas at Austin",
+      "title": "Professor of Statistics",
+      "email": "martin.keller.test@example.edu",
+      "phone": "5125550133",
+      "years_known": 5
+    },
+    {
+      "name": "Dr. Samuel Ortega",
+      "relationship": "Doctoral advisor",
+      "company": "University of Wisconsin-Madison",
+      "title": "Professor of Statistics",
+      "email": "samuel.ortega.test@example.edu",
+      "phone": "6085550117",
+      "years_known": 14
+    },
+    {
+      "name": "Dr. Priya Nair",
+      "relationship": "Research collaborator",
+      "company": "Johns Hopkins University",
+      "title": "Associate Professor of Biostatistics",
+      "email": "priya.nair.test@example.edu",
+      "phone": "4105550142",
+      "years_known": 7
+    },
+    {
+      "name": "Dr. Hannah Brooks",
+      "relationship": "Teaching mentor",
+      "company": "University of Texas at Austin",
+      "title": "Professor of Data Sciences",
+      "email": "hannah.brooks.test@example.edu",
+      "phone": "5125550188",
+      "years_known": 5
     }
   ],
 

@@ -1,12 +1,15 @@
 # The `.playbook` format
 
 A **playbook** is a YAML file describing, step by step, how to fill out and
-submit one application form. The runner reads a playbook plus an applicant
-**data file** (JSON), resolves every `{{ placeholder }}` from the data, evaluates
-any conditions, and drives a real browser with Playwright.
+prepare one application form for review. The runner reads a playbook plus an
+applicant **data file** (JSON), resolves every `{{ placeholder }}` from the
+data, evaluates any conditions, and drives a real browser with Playwright.
 
 Design goals: a colleague should be able to write a new playbook by copying an
 existing one and editing visible labels — no programming required.
+
+Runtime execution is deterministic and never calls an AI model. The retired AI
+recovery experiment is not part of this format or runner.
 
 ---
 
@@ -16,8 +19,10 @@ existing one and editing visible labels — no programming required.
 version: 1                       # optional, must be 1 if present
 name: "UTHealth Taleo Application"
 job_id: "260000AU"               # optional, informational
-employer_key: "uthealth"         # stable key for application-specific answers
+employer_key: "uthealth"         # stable employer/account and legacy-exception key
 url: "https://.../jobapply.ftl?job=260000AU"   # opened automatically first
+intake:
+  key: "uthealth"                 # unique private-intake contract for this playbook
 
 steps:
   - <step>
@@ -28,8 +33,15 @@ steps:
 begin with an explicit `open:`.
 
 Use `employer_key` for the stable employer/platform key, such as `umn`, `uci`,
-or `nyulangone`. The runner uses it to choose application-specific answer
-exceptions from the applicant data.
+or `nyulangone`. The runner uses it for external-account scope and legacy
+file-based answer exceptions.
+
+Every maintained product playbook also declares an `intake.key` registered in
+`playbook_runner/intake.py`. This key identifies the exact profile requirements,
+documents, and true position overrides for this playbook. It is separate
+from `employer_key`: several positions can share an employer/account scope while
+having different intake contracts. New maintained playbooks must use a unique
+intake key and add contract tests before publication.
 
 Use `generated_values` for account values the applicant should not pre-answer,
 such as made-up site usernames. These values are rendered once per run and
@@ -69,6 +81,7 @@ modifiers. The available verbs:
 | `search_dialog` | (description) | Drive a PageUp `SearchDialog.aspx` popup lookup (needs `value:`) |
 | `script` | (description) | Run a snippet of JavaScript on the page (needs `value:`) |
 | `sleep`  | seconds | Wait a fixed time (prefer `wait_for`; use only as a last resort) |
+| `pause_for_user` | instruction | Keep the visible browser open until a person completes and confirms a requested action |
 | `await_email_link` | (mapping) | Read a just-arrived email over IMAP and follow the link inside it — see below |
 | `await_email_code` | (mapping) | Read a just-arrived email over IMAP, extract a verification code, and fill it |
 
@@ -259,9 +272,12 @@ Example profile snippet:
 }
 ```
 
-Keep platform-only fields under `answers.*` with a prefix when they have no
-portable meaning, such as `answers.ua_referral_source`,
-`answers.nyulangone_degree`, or `answers.cuhk_publication_type`.
+Store reusable facts in the private profile even when an ATS uses unusual
+wording. The runner derives platform labels such as `app_answers.interfolio_degree`
+and `app_answers.ua_referral_source`. Use `position_overrides.*` only when a
+fact can genuinely change for one listed position. The remaining `answers.*`
+paths are protected runtime values such as government-ID or criminal-history
+checkpoints.
 
 Do not put legally sensitive or financial one-off answers, such as felony
 disclosures, SSNs, government IDs, banking, or payment fields, in general
@@ -333,6 +349,27 @@ pausing a fixed number of seconds.
 
 ---
 
+## Human gates: `pause_for_user`
+
+During the current testing stage, every maintained playbook must stop before
+the final submission and end with a human gate:
+
+```yaml
+# The final submit action is intentionally not encoded as an active step.
+- pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."
+```
+
+In the standalone CLI, this keeps the headed Playwright browser open and waits
+for confirmation in the terminal. The future Project Exchange companion will
+present the same gate in its UI. A live `--headless` run is rejected when the
+playbook contains `pause_for_user`; dry-run validation remains headless-safe.
+
+Do not add the final submit click elsewhere in the playbook. Automatic final
+submission is a future product mode requiring separate policy, user consent,
+and runner safeguards.
+
+---
+
 ## Email magic-links: `await_email_link`
 
 Some sign-ins are **passwordless**: the site emails you a one-time link and you
@@ -359,10 +396,9 @@ run stays end-to-end.
   → Security → 2-Step Verification → App passwords), not your normal login
   password. You *may* instead put templated `username:`/`password:` keys in the
   step (resolved from the data file) — keep those in a gitignored profile.
-- It reads the inbox of **the address you applied with**. A convenient trick is a
-  Gmail `+tag` alias: apply with `you+uci@gmail.com` (mail still lands in
-  `you@gmail.com`), so each site is filterable and `IMAP_USER` stays your real
-  address.
+- It reads the inbox of **the address you applied with**. Project Exchange uses
+  the applicant's exact dedicated application Gmail address for every ATS; the
+  runner does not silently create per-run `+tag` aliases.
 - **Only mail newer than the run's start counts**, so a stale link from an
   earlier run is never reused. `link_pattern` defaults to the first `http(s)`
   link; set it to target the real link and skip footer/logo URLs.
@@ -398,7 +434,7 @@ widgets that aren't (custom dropdowns with no real `<option>`s, stuck overlays):
 # select_option:
 - press: "Select state"        # description for logs only
   selector: "#state"
-  value: "{{ answers.interfolio_state }}, Enter"
+  value: "{{ app_answers.interfolio_state }}, Enter"
 
 # search_dialog: after a PageUp search button opens SearchDialog.aspx, fill the
 # popup search box, select the best matching result, click Select, and return to
@@ -525,9 +561,10 @@ the stable text around it with `[id$="…"]` (ends-with) or `[id*="…"]` (conta
 A JSON object. The runner merges one or more files passed with `-d` (later
 overrides earlier) and adds the `builtins` namespace. Reference any key by path
 in templates and conditions. See [applicants/test.json](applicants/test.json)
-for the structure (built on [information/test.json](information/test.json) plus
-two site-specific sections: `account` for the login and `answers` for
-form-specific choices whose text must match the page's options exactly).
+for the structure. `account` contains local runner credentials in test fixtures;
+products supply credentials through protected runtime storage. Canonical profile
+facts become ATS-specific `app_answers` automatically, and optional
+`position_overrides` apply only to the current target.
 
 ---
 
@@ -543,11 +580,11 @@ form-specific choices whose text must match the page's options exactly).
    [docs/ai-playbook-drafting-context.md](docs/ai-playbook-drafting-context.md)
    to draft a playbook. Or start from an existing playbook: copy it and edit
    `url` / labels.
-2. **Write or review the YAML directly**. Prefer copying a similar existing
-   playbook, then use the extractor output to confirm selectors, option text,
-   custom widgets, hidden fields, and validation messages. The old
-   paste-extractor-output-into-terminal drafter is archived under
-   `past_attempts/`; it is not the current workflow.
+2. **Generate and review the YAML** with `tools/draft_playbook.py`, or copy a
+   similar existing playbook. Use the extractor output to confirm selectors,
+   option text, custom widgets, hidden fields, and validation messages. The
+   generator deliberately comments navigation and submit-like actions until a
+   maintainer reviews them. Final submission actions stay inactive.
 3. **Finish the draft**: resolve every `TODO`, use canonical profile paths for
    applicant facts, use `app_answers.*` for reusable application answers, and
    complete any `pick` mappings.
@@ -566,3 +603,5 @@ form-specific choices whose text must match the page's options exactly).
 7. If a missing option equivalence caused the failure, run
    `tools/accept_equivalence_gap.py` against `equivalence-gap.json`, rerun unit
    tests, and validate the playbook again.
+8. End the playbook with `pause_for_user`. Never encode the final submit click
+   as an active step while the project is in human-submission mode.

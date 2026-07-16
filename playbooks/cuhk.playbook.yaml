@@ -3,6 +3,14 @@ name: "CUHK-Shenzhen Academic Recruitment Application"
 job_id: "735"
 employer_key: "cuhk"
 url: "https://jobs.cuhk.edu.cn/jobDetails?id=735&channel=SDS4"
+listing:
+  institution: "The Chinese University of Hong Kong, Shenzhen"
+  title: "Academic Recruitment, Job 735"
+  department: "School of Data Science"
+  field: "Data Science"
+  category: "faculty"
+intake:
+  key: "cuhk"
 
 # =============================================================================
 # CUHK-SHENZHEN ACADEMIC RECRUITMENT SYSTEM — job 735, channel SDS4
@@ -100,13 +108,13 @@ steps:
   # Job preferences. "Applied Employment Type" is disabled/pre-filled by CUHK.
   - press: "Applied Division"
     selector: 'xpath=//label[normalize-space(.)="Applied Division"]/following::input[@type="text"][1]'
-    value: "ArrowDown, {{ answers.cuhk_applied_division }}, Enter"
+    value: "ArrowDown, {{ app_answers.cuhk_applied_division }}, Enter"
   - press: "Applied Class of Appointment"
     selector: 'xpath=//label[normalize-space(.)="Applied Class of Appointment"]/following::input[@type="text"][1]'
-    value: "ArrowDown, {{ answers.cuhk_applied_class_of_appointment }}, Enter"
+    value: "ArrowDown, {{ app_answers.cuhk_applied_class_of_appointment }}, Enter"
   - press: "Applied Position"
     selector: 'xpath=//label[normalize-space(.)="Applied Position"]/following::input[@type="text"][1]'
-    value: "ArrowDown, {{ answers.cuhk_applied_position }}, Enter"
+    value: "ArrowDown, {{ app_answers.cuhk_applied_position }}, Enter"
 
   # Personal information.
   - fill: "First Name"
@@ -124,8 +132,8 @@ steps:
     value: "{{ detailed_personal_info.date_of_birth }}"
   - fill: "Chinese Name"
     selector: 'xpath=//label[normalize-space(.)="Chinese Name"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_chinese_name }}"
-    when: 'answers.cuhk_chinese_name != "" and answers.cuhk_chinese_name != null'
+    value: "{{ app_answers.cuhk_chinese_name }}"
+    when: 'app_answers.cuhk_chinese_name != "" and app_answers.cuhk_chinese_name != null'
   - press: "Title"
     selector: 'xpath=//label[normalize-space(.)="Title"]/following::input[@type="text"][1]'
     value: "ArrowDown, {{ person_name.legal_name.prefix }}, Enter"
@@ -163,7 +171,7 @@ steps:
     value: "{{ employment_basics.availability_to_start }}"
   - fill: "Research Interest"
     selector: 'xpath=//label[normalize-space(.)="Research Interest"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_research_interest }}"
+    value: "{{ app_answers.cuhk_research_interest }}"
   - fill: "Correspondence Address"
     selector: 'xpath=//label[normalize-space(.)="Correspondence Address"]/following::input[@type="text"][1]'
     value: "{{ address_and_contact.primary_address.line_1 }} {{ address_and_contact.primary_address.line_2 }}, {{ address_and_contact.primary_address.city }}, {{ address_and_contact.primary_address.state_province }} {{ address_and_contact.primary_address.postal_code }}, {{ address_and_contact.primary_address.country }}"
@@ -171,22 +179,22 @@ steps:
   # Emergency contact.
   - fill: "Emergency Contact Name"
     selector: 'xpath=//label[normalize-space(.)="Emergency Contact Name"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_emergency_contact_name }}"
+    value: "{{ app_answers.cuhk_emergency_contact_name }}"
   - fill: "Relationship to Applicant"
     selector: 'xpath=//label[normalize-space(.)="Relationship to Applicant"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_emergency_contact_relationship }}"
+    value: "{{ app_answers.cuhk_emergency_contact_relationship }}"
   - fill: "Emergency Contact Number"
     selector: 'xpath=//label[normalize-space(.)="Emergency Contact Number"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_emergency_contact_number }}"
+    value: "{{ app_answers.cuhk_emergency_contact_number }}"
   - fill: "Emergency Contact Address"
     selector: 'xpath=//label[normalize-space(.)="Emergency Contact Address"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_emergency_contact_address }}"
+    value: "{{ app_answers.cuhk_emergency_contact_address }}"
 
   # Education, first row. The `Country/Region` and `Start Date` labels repeat
   # later in work history, so these selectors intentionally take the first match.
   - press: "Degree"
     selector: 'xpath=(//label[normalize-space(.)="Degree"]/following::input[@type="text"][1])[1]'
-    value: "ArrowDown, {{ answers.cuhk_degree }}, Enter"
+    value: "ArrowDown, {{ app_answers.cuhk_degree }}, Enter"
   - fill: "Major Subject / Field of Study"
     selector: 'xpath=//label[normalize-space(.)="Major Subject / Field of Study"]/following::input[@type="text"][1]'
     value: "{{ education.schools.0.major }}"
@@ -213,7 +221,7 @@ steps:
     value: "{{ work_history.0.company }}"
   - press: "Type of Employment"
     selector: 'xpath=//label[normalize-space(.)="Type of Employment"]/following::input[@type="text"][1]'
-    value: "ArrowDown, {{ answers.cuhk_type_of_employment }}, Enter"
+    value: "ArrowDown, {{ app_answers.cuhk_type_of_employment }}, Enter"
   - fill: "Nature of Work"
     selector: 'input[placeholder="Please describe the main responsibilities (e.g., teaching, research, etc)"]'
     value: "{{ work_history.0.responsibilities }}"
@@ -242,25 +250,25 @@ steps:
     selector: 'xpath=//label[normalize-space(.)="Publication Type"]'
   - press: "Publication Type"
     selector: 'xpath=//label[normalize-space(.)="Publication Type"]/following::input[@type="text"][1]'
-    value: "ArrowDown, {{ answers.cuhk_publication_type }}, Enter"
+    value: "ArrowDown, {{ app_answers.cuhk_publication_type }}, Enter"
   - fill: "Type of Work"
     selector: 'xpath=//label[normalize-space(.)="Type of Work"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_publication_work_type }}"
+    value: "{{ app_answers.cuhk_publication_work_type }}"
   - fill: "Publication Title"
     selector: 'xpath=//label[normalize-space(.)="Title"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_publication_title }}"
+    value: "{{ app_answers.cuhk_publication_title }}"
   - fill: "Author(s)/Creator(s)"
     selector: 'xpath=//label[normalize-space(.)="Author(s)/Creator(s)"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_publication_authors }}"
+    value: "{{ app_answers.cuhk_publication_authors }}"
   - fill: "Target Journal/ Publisher/ Conference"
     selector: 'xpath=//label[normalize-space(.)="Target Journal/ Publisher/ Conference"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_publication_venue }}"
+    value: "{{ app_answers.cuhk_publication_venue }}"
   - fill: "Current Status"
     selector: 'xpath=//label[normalize-space(.)="Current Status"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_publication_status }}"
+    value: "{{ app_answers.cuhk_publication_status }}"
   - fill: "Description"
     selector: 'xpath=//label[normalize-space(.)="Description"]/following::input[@type="text"][1]'
-    value: "{{ answers.cuhk_publication_description }}"
+    value: "{{ app_answers.cuhk_publication_description }}"
   - click: "Next"
     selector: "xpath=(//*[self::button or self::a or @role='button'][contains(normalize-space(.), \"Next\")])[1]"
     wait_after: 2
@@ -282,3 +290,5 @@ steps:
   # - click: "Submit"
   #   selector: "TODO"
   #   wait_after: 3
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

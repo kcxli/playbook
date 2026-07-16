@@ -3,6 +3,15 @@ name: "University of Utah - Mid-Career Faculty, Biostatistics"
 job_id: "PRN04075F"
 employer_key: "utah"
 url: "https://utah.peopleadmin.com/postings/204175"
+listing:
+  institution: "University of Utah"
+  title: "Mid-Career Faculty, Biostatistics"
+  department: "Biostatistics"
+  field: "Biostatistics"
+  category: "faculty"
+  state: "utah"
+intake:
+  key: "utah"
 
 generated_values:
   - key: account.utah_user_name
@@ -13,6 +22,7 @@ generated_values:
     value: "Pw{{ builtins.short_unique }}"
   - key: account.utah_email
     label: "Utah email"
+    # Compatibility key; the runner now preserves the exact dedicated mailbox.
     value: "{{ account.generated_email }}"
 
 steps:
@@ -420,9 +430,9 @@ steps:
     when: 'detailed_personal_info.disability_status.value != "" and detailed_personal_info.disability_status.value != null'
   - fill: "Employee ID"
     selector: "#submission_applicant_detail_attributes_drivers_license_attributes_custom_string_seven"
-    value: "{{ answers.utah_employee_id }}"
+    value: "{{ app_answers.utah_employee_id }}"
     optional: true
-    when: 'answers.utah_employee_id != "" and answers.utah_employee_id != null'
+    when: 'app_answers.utah_employee_id != "" and app_answers.utah_employee_id != null'
   - pick:
       field: "Disability Status"
       as: select
@@ -518,3 +528,5 @@ steps:
 
   # - click: "Submit this Application"
   #   selector: 'input[type="submit"][value="Submit this Application"]'
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

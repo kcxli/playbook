@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "Deterministic aliases learned from real application forms and shipped with the runner.",
+  "groups": {
+    "decline": {
+      "decline": ["Not Applicable (Int'l Candidate)"]
+    },
+    "pronouns": {
+      "he him": ["He/Him/His"],
+      "she her": ["She/Her/Hers"],
+      "they them": ["They/Them/Theirs"],
+      "ze hir": ["Ze/Hir/Hirs"],
+      "ze zir": ["Ze/Zir/Zirs"]
+    },
+    "citizenship_status": {
+      "citizen": ["1-Citizen"],
+      "permanent resident": ["5-Permanent Resident"],
+      "alien authorized to work": ["4-Alien Authorized to Work"],
+      "noncitizen national": ["8-Noncitizen National of the United States"]
+    }
+  },
+  "context_hints": {
+    "pronouns": ["Pronouns"],
+    "citizenship_status": ["Citizenship Status"]
+  }
+}

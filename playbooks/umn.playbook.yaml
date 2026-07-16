@@ -3,6 +3,13 @@ name: "University of Minnesota Application"
 job_id: "373632"
 employer_key: "umn"
 url: "https://hr.myu.umn.edu/jobs/ext/373632"
+listing:
+  institution: "University of Minnesota"
+  title: "Position 373632"
+  category: "faculty"
+  state: "minnesota"
+intake:
+  key: "umn"
 
 steps:
   # --- job posting page -----------------------------------------------------
@@ -57,7 +64,7 @@ steps:
     value: "{{ address_and_contact.primary_address.postal_code }}"
   - fill: "County"
     selector: '[id="COUNTY$7"]'
-    value: "{{ answers.county }}"
+    value: "{{ app_answers.county }}"
     optional: true
   - check: "I agree to the Terms and Conditions"
     selector: "#HRS_CE_TERMS_AG_HRS_CE_AGREE_TERMS"
@@ -133,7 +140,7 @@ steps:
   # "Vocation. Education (Master)"
   - select: "Highest Education Level"
     selector: '[id="HRS_APP_PROFILE_HIGHEST_EDUC_LVL$0"]'
-    value: "{{ answers.highest_education }}"
+    value: "{{ app_answers.highest_education }}"
   - click: "Add Degrees"
     selector: '[id="HRS_CE_LNK_WRK_HRS_ADD_CONTENT$6$$0"]'
     wait_after: 1
@@ -146,27 +153,27 @@ steps:
     value: "{{ builtins.today }}"
   - select: "Degree"
     selector: '[id^="HRS_APPITM02_VW_JPM_CAT_ITEM_ID"]'
-    value: "{{ answers.umn_degree }}"
+    value: "{{ app_answers.umn_degree }}"
   - fill: "Major"
     selector: '[id^="MAJOR_TBL_DESCR"]'
-    value: "{{ answers.major }}"
+    value: "{{ app_answers.major }}"
   - fill: "School"
     selector: '[id^="UM_SCHL_TBL_VW_SCHOOL_DESCR"]'
-    value: "{{ answers.school }}"
+    value: "{{ app_answers.school }}"
     optional: true
   - fill: "Country"
     selector: '[id^="COUNTRY"]'
-    value: "{{ answers.umn_education_country }}"
+    value: "{{ app_answers.umn_education_country }}"
     optional: true
-    when: 'answers.umn_education_country != ""'
+    when: 'app_answers.umn_education_country != ""'
   - fill: "State"
     selector: '[id^="STATE"]'
-    value: "{{ answers.umn_education_state }}"
+    value: "{{ app_answers.umn_education_state }}"
     optional: true
-    when: 'answers.umn_education_state != ""'
+    when: 'app_answers.umn_education_state != ""'
   - fill: "Year Acquired"
     selector: '[id^="JPM_INTEGER_2"]'
-    value: "{{ answers.degree_year_acquired }}"
+    value: "{{ app_answers.degree_year_acquired }}"
   - click: "Done"
     wait_after: 2
 
@@ -181,16 +188,16 @@ steps:
   - pick:
       group: "Conflict of Interest"
       scope: 'input[type=radio][name="UM_HRS_APP_COI_UM_HRS_COI$0"]'
-      source: answers.has_conflict_of_interest
+      source: app_answers.has_conflict_of_interest
       map: { true: "Yes", false: "No" }
 
   # Are you authorized to work in the United States? (Yes=1st, No=2nd)
   - check: "Yes"
     selector: "xpath=(//input[@type='radio'][@name='HRS_JO_EANS_I_R$sels$0'])[1]"
-    when: "answers.authorized_to_work_us == true"
+    when: "app_answers.authorized_to_work_us == true"
   - check: "No"
     selector: "xpath=(//input[@type='radio'][@name='HRS_JO_EANS_I_R$sels$0'])[2]"
-    when: "answers.authorized_to_work_us == false"
+    when: "app_answers.authorized_to_work_us == false"
 
   # Would you now or in the future require sponsorship / STEM OPT support? (Yes=1st, No=2nd)
   - check: "Yes"
@@ -210,15 +217,15 @@ steps:
   # "Other" | "Relocation Assistance Program" | "Social Network" | "U of M Career Site"
   - select: "How did you learn of the job?"
     selector: '[id="HRS_AL_SRCE_I_HRS_SOURCE_ID$0"]'
-    value: "{{ answers.referral_source }}"
+    value: "{{ app_answers.referral_source }}"
   - fill: "Specific Referral Source"
     selector: '[id$="SUBSOURCE_DESC$0"]'
-    value: "{{ answers.specific_referral_source }}"
+    value: "{{ app_answers.specific_referral_source }}"
     optional: true
   # Valid values: "No" | "Yes"
   - select: "Are you a former employee"
     selector: '[id="HRS_APP_PROFILE_PREV_EMPL_BY_COMPY$0"]'
-    value: "{{ answers.previously_employed_by_umn }}"
+    value: "{{ app_answers.previously_employed_by_umn }}"
   - click: "Next"
     selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
     wait_after: 2
@@ -239,7 +246,7 @@ steps:
   - pick:
       group: "Voluntary Self-Identification of Protected Veteran Status"
       scope: 'input[type=radio][name="VETERAN_STS_D"]'
-      source: answers.is_veteran
+      source: app_answers.is_veteran
       map:
         true: "I IDENTIFY AS ONE OR MORE OF THE CLASSIFICATIONS OF PROTECTED VETERAN LISTED BELOW"
         false: "I AM NOT A PROTECTED VETERAN"
@@ -253,19 +260,19 @@ steps:
   # Gender (radio: Female | Male, or decline via checkbox)
   - check: "Female"
     selector: 'xpath=(//input[@type="radio"][@name="ETHNICHISP_IND_Y1"])[1]'
-    when: 'answers.gender == "Female"'
+    when: 'app_answers.gender == "Female"'
   - check: "Male"
     selector: 'xpath=(//input[@type="radio"][@name="ETHNICHISP_IND_Y1"])[2]'
-    when: 'answers.gender == "Male"'
+    when: 'app_answers.gender == "Male"'
   - check: "I decline to answer"
     selector: "#HRS_CE_TERMS_AG_HRS_SELF_IDNT_DEC1"
-    when: 'answers.gender != "Female" and answers.gender != "Male"'
+    when: 'app_answers.gender != "Female" and app_answers.gender != "Male"'
 
   # Hispanic / Latino ethnicity
   - pick:
       group: "Hispanic or Latino"
       scope: 'input[type=radio][name="ETHNICHISP_IND_Y"]'
-      source: answers.is_hispanic_or_latino
+      source: app_answers.is_hispanic_or_latino
       map:
         true: "Yes, I am Hispanic or Latino."
         false: "No, I am not Hispanic or Latino."
@@ -273,22 +280,22 @@ steps:
   # Race — check all that apply (answers.race_ethnicity may be a list or single string)
   - check: "American Indian or Alaska Native"
     selector: "#HRS_DIV_WRK_HR_AMIND_IND_USA"
-    when: '"American Indian or Alaska Native" in answers.race_ethnicity'
+    when: '"American Indian or Alaska Native" in app_answers.race_ethnicity'
   - check: "Asian"
     selector: "#HRS_DIV_WRK_HR_ASIAN_IND_USA"
-    when: '"Asian" in answers.race_ethnicity'
+    when: '"Asian" in app_answers.race_ethnicity'
   - check: "Black or African American"
     selector: "#HRS_DIV_WRK_HR_BLACK_IND_USA"
-    when: '"Black or African American" in answers.race_ethnicity'
+    when: '"Black or African American" in app_answers.race_ethnicity'
   - check: "Native Hawaiian or Pacific Islander"
     selector: "#HRS_DIV_WRK_HR_PACIF_IND_USA"
-    when: '"Native Hawaiian or Pacific Islander" in answers.race_ethnicity'
+    when: '"Native Hawaiian or Pacific Islander" in app_answers.race_ethnicity'
   - check: "White"
     selector: "#HRS_DIV_WRK_HR_WHITE_IND_USA"
-    when: '"White" in answers.race_ethnicity'
+    when: '"White" in app_answers.race_ethnicity'
   - check: "I decline to answer"
     selector: '[id="HRS_CE_TERMS_AG_HRS_SELF_IDNT_DECL$49$"]'
-    when: 'answers.race_ethnicity == null or answers.race_ethnicity == ""'
+    when: 'app_answers.race_ethnicity == null or app_answers.race_ethnicity == ""'
 
   - click: "Next"
     selector: "#PTGP_GPLT_WRK_PTGP_NEXT_PB"
@@ -297,3 +304,5 @@ steps:
   # --- review & submit ------------------------------------------------------
   # - click: "Submit"
   #   selector: "#PTGP_GPLT_WRK_PTGP_SUBMIT_PB"
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

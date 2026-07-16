@@ -6,6 +6,7 @@ you ever open a browser against a live application form.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 from . import conditions
@@ -13,6 +14,13 @@ from .context import DataError
 from .engine import _match_key
 from .parser import Playbook, Step
 from .template import render_text, resolve_native
+
+
+_SENSITIVE_FIELD_RE = re.compile(
+    r"password|passcode|secret|api[_ -]?key|access[_ -]?token|social security|\bssn\b|"
+    r"bank account|routing number|credit card",
+    re.I,
+)
 
 
 def analyze(
@@ -77,7 +85,7 @@ def _describe_resolved(step: Step, context: dict[str, Any]) -> str:
     if step.kind == "click":
         return f"click   {render_text(step.target, context)!r}"
     if step.kind == "fill":
-        return f"fill    {render_text(step.target, context)!r} = {render_text(step.value, context)!r}"
+        return f"fill    {render_text(step.target, context)!r} = {_safe_rendered_value(step, context)!r}"
     if step.kind == "select":
         return f"select  {render_text(step.target, context)!r} -> {render_text(step.value, context)!r}"
     if step.kind == "check":
@@ -94,8 +102,10 @@ def _describe_resolved(step: Step, context: dict[str, Any]) -> str:
         return f"scroll  {render_text(step.target, context)!r}"
     if step.kind == "hover":
         return f"hover   {render_text(step.target, context)!r}"
+    if step.kind == "pause_for_user":
+        return f"pause_for_user  {render_text(step.target, context)!r}"
     if step.kind == "press":
-        return f"press   {render_text(step.target, context)!r} <- {render_text(step.value, context)!r}"
+        return f"press   {render_text(step.target, context)!r} <- {_safe_rendered_value(step, context)!r}"
     if step.kind == "script":
         return f"script  {render_text(step.target, context)!r} (js)"
     if step.kind == "search_dialog":
@@ -115,15 +125,23 @@ def _describe_resolved(step: Step, context: dict[str, Any]) -> str:
             f"await_email_code  fill {field!r} "
             f"from~{frm!r} to~{to!r} subject~{subj!r} (reads mailbox at run time)"
         )
-    if step.kind == "ai_fill_page":
-        cfg = step.config
-        sources = cfg.get("allowed_sources") or "default profile sources"
-        max_actions = cfg.get("max_actions", 12)
-        return f"ai_fill_page  sources={sources!r} max_actions={max_actions} (requires --ai-recover)"
     if step.kind == "pick":
         cfg = step.pick
         value = resolve_native(str(cfg["source"]), context)
         chosen = cfg["map"].get(_match_key(value, cfg["map"]), cfg.get("default"))
+        if chosen is None:
+            raise DataError(
+                f"pick: source {cfg['source']}={value!r} matched no map key "
+                "and no default was given"
+            )
         tgt = cfg.get("field") or cfg.get("group") or cfg.get("scope")
         return f"pick    {cfg['source']}={value!r} -> {chosen!r}  (on {tgt!r}, as {cfg['as']})"
     return step.kind
+
+
+def _safe_rendered_value(step: Step, context: dict[str, Any]) -> str:
+    rendered = render_text(step.value, context)
+    identifying_text = " ".join(
+        str(item or "") for item in (step.target, step.selector, step.value)
+    )
+    return "(redacted)" if _SENSITIVE_FIELD_RE.search(identifying_text) else rendered

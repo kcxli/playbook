@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import conditions
+from .artifacts import ensure_private_dir, make_private, write_private_text
 from .context import DataError
 from .equivalences import OptionCandidate, best_match, candidate_preview, equivalence_gap_report
 from .parser import Playbook, Step
@@ -46,7 +47,7 @@ def _xpath_literal(text: str) -> str:
 
 
 def _selector_candidates(selector: str) -> list[str]:
-    """Return selector fallbacks for common AI/CSS escaping mistakes."""
+    """Return selector fallbacks for common generated/CSS escaping mistakes."""
     out = [selector]
     if selector.startswith("#") and not any(ch in selector for ch in " >+~:["):
         raw_id = selector[1:].replace("\\$", "$")
@@ -68,6 +69,7 @@ class Engine:
         screenshot_dir: str | None = None,
         pace: float = 0.0,
         log: Callable[[str], None] = print,
+        human_prompt: Callable[[str], None] | None = None,
     ):
         self.context = context
         self.headless = headless
@@ -76,6 +78,7 @@ class Engine:
         self.screenshot_dir = screenshot_dir
         self.pace = pace
         self.log = log
+        self.human_prompt = human_prompt
         self._pw = None
         self._browser = None
         self.page = None
@@ -210,6 +213,13 @@ class Engine:
 
     def _do_sleep(self, step: Step) -> None:
         time.sleep(float(step.target))
+
+    def _do_pause_for_user(self, step: Step) -> None:
+        if self.headless:
+            raise DataError("pause_for_user requires a visible browser")
+        if self.human_prompt is None:
+            raise DataError("pause_for_user requires a human-prompt callback")
+        self.human_prompt(render_text(step.target, self.context))
 
     def _do_wait_for(self, step: Step) -> None:
         """Block until an element appears and is visible, then continue.
@@ -950,7 +960,6 @@ class Engine:
         suffix) distinguishes them. Matches the option by its own label text,
         so it never picks another question's radio.
         """
-        target = _norm_label(option)
         deadline = time.monotonic() + max(self.default_timeout, 1000) / 1000.0
         last_candidates: list[OptionCandidate] = []
         while True:
@@ -1160,25 +1169,30 @@ class Engine:
         if not self.screenshot_dir:
             return
         try:
-            out = Path(self.screenshot_dir)
-            failure_dir = out / f"error-step-{n:03d}"
-            failure_dir.mkdir(parents=True, exist_ok=True)
+            out = ensure_private_dir(self.screenshot_dir)
+            failure_dir = ensure_private_dir(out / f"error-step-{n:03d}")
 
             shot = failure_dir / "screenshot.png"
+            shot.touch(mode=0o600, exist_ok=True)
+            make_private(shot)
             self.page.screenshot(path=str(shot), full_page=True)
+            make_private(shot)
 
             html = failure_dir / "page.html"
             try:
-                html.write_text(self.page.content())
+                write_private_text(html, self.page.content())
             except Exception as exc:  # noqa: BLE001
-                html.write_text(f"Could not capture page HTML: {exc}\n")
+                write_private_text(html, f"Could not capture page HTML: {exc}\n")
 
-            (failure_dir / "failure.txt").write_text(
-                self._failure_report(n, step, error, shot, html)
+            write_private_text(
+                failure_dir / "failure.txt",
+                self._failure_report(n, step, error, shot, html),
             )
             if self._last_equivalence_gap:
-                (failure_dir / "equivalence-gap.json").write_text(
-                    json.dumps(self._last_equivalence_gap, indent=2, sort_keys=True) + "\n"
+                write_private_text(
+                    failure_dir / "equivalence-gap.json",
+                    json.dumps(self._last_equivalence_gap, indent=2, sort_keys=True)
+                    + "\n",
                 )
             self.log(f"  · saved failure artifacts {failure_dir}")
         except Exception as exc:  # noqa: BLE001

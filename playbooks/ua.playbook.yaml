@@ -3,6 +3,16 @@ name: "University of Alabama — Assistant Professor, Probability/Mathematical S
 job_id: "527499"
 employer_key: "ua"
 url: "https://careers.ua.edu/jobs/bcas-assistant-professor-in-probability-or-mathematical-statistics-in-mathematics-527499-tuscaloosa-alabama-united-states"
+listing:
+  institution: "The University of Alabama"
+  title: "Assistant Professor, Probability or Mathematical Statistics"
+  department: "Mathematics"
+  field: "Probability and Mathematical Statistics"
+  category: "faculty"
+  rank: ["assistant_professor"]
+  state: "alabama"
+intake:
+  key: "ua"
 
 # =============================================================================
 # UNIVERSITY OF ALABAMA CAREERS — PageUp People applicant flow (job 527499)
@@ -10,15 +20,15 @@ url: "https://careers.ua.edu/jobs/bcas-assistant-professor-in-probability-or-mat
 # careers.ua.edu runs on PageUp. The application form is JavaScript-rendered and
 # sits behind a sign-in/registration step, so its field selectors could NOT be
 # read server-side — they must come from the FORM EXTRACTOR run live in the
-# browser. The selectors marked `# TODO from extractor` below are placeholders;
-# replace each with the real selector from tools/form-extractor.js output.
+# browser. Most selectors below were confirmed with live extractor captures;
+# conditional controls without a stable selector use visible-label matching.
 #
 # HOW TO FILL THIS IN (same workflow as the UMN/UCI playbooks):
 #   1. Open the job page, click "Apply", and sign in / register an account.
 #   2. On EACH application page, paste the bookmarklet at the bottom of
 #      tools/form-extractor.js into the DevTools Console (F12 → Console).
-#   3. Paste the printed output back to Claude; Claude swaps the TODO selectors
-#      for the real ids and fixes button text to match the live page.
+#   3. Use the capture to replace label fallbacks with stable ids and confirm
+#      button text against the live page.
 #   4. Run NON-headless with --slow-mo 400 first to watch it through.
 #
 # Typical PageUp apply flow (refine against the extractor output):
@@ -76,7 +86,7 @@ steps:
   # Pattern: press the field, type the value to filter, then ArrowDown+Enter to pick.
   - press: "Title:*"
     selector: "#sTitle-edit"
-    value: "{{ answers.ua_title }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_title }}, ArrowDown, Enter"
   - fill: "Legal First Name:*"
     selector: "#sFName"
     value: "{{ person_name.legal_name.first }}"
@@ -126,10 +136,10 @@ steps:
     optional: true
   - press: "The University of Alabama employment status:*"
     selector: "#lLKP_NominatedEmploymentStatusID-edit"
-    value: "{{ answers.ua_employment_status }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_employment_status }}, ArrowDown, Enter"
   - fill: "If you are a current employee please indicate your department of employment and your current job title:"
     selector: "#sOther1"
-    value: "{{ answers.ua_current_dept_and_title }}"
+    value: "{{ app_answers.ua_current_dept_and_title }}"
     optional: true
   - click: "Save and continue"
     selector: "#button_saveContinue"
@@ -140,19 +150,19 @@ steps:
   # All -edit fields are PageUp dropdowns (Yes/No unless noted).
   - press: "Are you currently authorized to work in the United States?*"
     selector: "#q31516-edit"
-    value: "{{ answers.authorized_to_work_us_label }}, ArrowDown, Enter"
+    value: "{{ app_answers.authorized_to_work_us_label }}, ArrowDown, Enter"
   - press: "Is your age 16 or over?*"
     selector: "#q31520-edit"
     value: "Yes, ArrowDown, Enter"
   - press: "Do you have family members who are currently employed by The University of Alabama*"
     selector: "#q31521-edit"
-    value: "{{ answers.ua_has_family_employee }}, ArrowDown, Enter"
-  # Conditional: only appears when family member answer is "Yes"
+    value: "{{ app_answers.ua_has_family_employee }}, ArrowDown, Enter"
+  # Conditional: only appears when family member answer is "Yes". Until a stable
+  # selector is captured, use its visible label and fail loudly if it cannot be
+  # found rather than silently skipping a required disclosure.
   - fill: "If yes, please list the relative's name, position title, and department:*"
-    selector: "TODO"   # textarea — run extractor with Yes selected to get selector
-    value: "{{ answers.ua_family_member_details }}"
-    when: 'answers.ua_has_family_employee == "Yes"'
-    optional: true
+    value: "{{ app_answers.ua_family_member_details }}"
+    when: 'app_answers.ua_has_family_employee == "Yes"'
   - fill: "If you are a current or previous employee, please list your CWID (if known):"
     selector: "#q31515"
     value: ""
@@ -172,12 +182,12 @@ steps:
   # --- Education row 1 -------------------------------------------------------
   - press: "Type of education:*"
     selector: "xpath=(//input[@role='combobox'])[1]"
-    value: "{{ answers.ua_education_type }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_education_type }}, ArrowDown, Enter"
     wait_after: 1
 
   - press: "Degree type:*"
     selector: "xpath=(//input[@role='combobox'])[2]"
-    value: "{{ answers.ua_degree_type }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_degree_type }}, ArrowDown, Enter"
     wait_after: 1
 
   # Major opens a "Search - Major" popup window (SearchDialog.aspx).
@@ -188,7 +198,7 @@ steps:
     selector: "xpath=//input[@id='major_1Text']/following::*[self::a or self::button or (self::input and (@type='button' or @type='image'))][1]"
     wait_after: 1
   - search_dialog: "Major"
-    value: "{{ answers.major }}"
+    value: "{{ app_answers.major }}"
     wait_after: 1
 
   - fill: "Additional majors:"
@@ -205,22 +215,22 @@ steps:
     selector: "xpath=//*[normalize-space()='Institution:*']/following::*[self::a or self::button or (self::input and (@type='button' or @type='image'))][1]"
     wait_after: 1
   - search_dialog: "Institution"
-    value: "{{ answers.school }}"
+    value: "{{ app_answers.school }}"
     wait_after: 1
 
   - press: "Education status:*"
     selector: "xpath=//*[normalize-space()='Education status:*']/following::input[@role='combobox'][1]"
-    value: "{{ answers.ua_education_status }}, Tab"
+    value: "{{ app_answers.ua_education_status }}, Tab"
     wait_after: 1
 
   - fill: "Year started:"
     selector: "input[id$='yearStarted_1']"
-    value: "{{ answers.ua_degree_year_started }}"
+    value: "{{ app_answers.ua_degree_year_started }}"
     optional: true
 
   - fill: "Year finished (actual or anticipated):"
     selector: "input[id$='yearEnded_1']"
-    value: "{{ answers.degree_year_acquired }}"
+    value: "{{ app_answers.degree_year_acquired }}"
     optional: true
 
   # --- Employment row 1 ------------------------------------------------------
@@ -229,23 +239,23 @@ steps:
   # suffixes; stable ids noted where available.
   - press: "Employer status:*"
     selector: "xpath=//*[normalize-space()='Employer status:*']/following::input[@role='combobox'][1]"
-    value: "{{ answers.ua_employer_status }}, Tab"
+    value: "{{ app_answers.ua_employer_status }}, Tab"
     wait_after: 1
 
   - fill: "Your job title:*"
     selector: "#role_1"
-    value: "{{ answers.current_title }}"
+    value: "{{ app_answers.current_title }}"
 
   # Start date — month/year dropdowns with volatile ids; only one pair on page
   # when "Currently employed" (end date absent), so position is unambiguous.
   - press: "Month"
     selector: "xpath=//*[normalize-space()='Date started with company:*']/following::input[@role='combobox'][1]"
-    value: "{{ answers.ua_start_month }}, Tab"
+    value: "{{ app_answers.ua_start_month }}, Tab"
     optional: true
 
   - press: "Year"
     selector: "xpath=//*[normalize-space()='Date started with company:*']/following::input[@role='combobox'][2]"
-    value: "{{ answers.ua_start_year }}, Tab"
+    value: "{{ app_answers.ua_start_year }}, Tab"
     optional: true
 
   # Company name — same popup pattern as Major (SearchDialog.aspx?sSelectType=ProfileCompany).
@@ -255,7 +265,7 @@ steps:
     selector: "xpath=//*[contains(@id,'companyName_1Text')]/following-sibling::*[self::input or self::button or self::a][1]"
     wait_after: 2
   - search_dialog: "Company name"
-    value: "{{ answers.ua_company_name }}"
+    value: "{{ app_answers.ua_company_name }}"
     optional: true
     wait_after: 1
 
@@ -265,35 +275,35 @@ steps:
 
   - fill: "Manager's name:*"
     selector: "input[id$='managerName_1']"
-    value: "{{ answers.ua_manager_name }}"
+    value: "{{ app_answers.ua_manager_name }}"
 
   - fill: "Your responsibilities:*"
     selector: "textarea[id$='responsibilities_1']"
-    value: "{{ answers.ua_responsibilities }}"
+    value: "{{ app_answers.ua_responsibilities }}"
 
   # End date — stable ids, only present when "Previous employer" selected.
   - press: "Month"
     selector: "#q34343_dEnded_1_month-edit"
-    value: "{{ answers.ua_end_month }}, ArrowDown, Enter"
-    when: 'answers.ua_employer_status == "Previous employer"'
+    value: "{{ app_answers.ua_end_month }}, ArrowDown, Enter"
+    when: 'app_answers.ua_employer_status == "Previous employer"'
     optional: true
 
   - press: "Year"
     selector: "#q34343_dEnded_1_year-edit"
-    value: "{{ answers.ua_end_year }}, ArrowDown, Enter"
-    when: 'answers.ua_employer_status == "Previous employer"'
+    value: "{{ app_answers.ua_end_year }}, ArrowDown, Enter"
+    when: 'app_answers.ua_employer_status == "Previous employer"'
     optional: true
 
   - fill: "Your reason for leaving:*"
     selector: "[id$='reasonLeaving_1']"
-    value: "{{ answers.ua_reason_for_leaving }}"
-    when: 'answers.ua_employer_status == "Previous employer"'
+    value: "{{ app_answers.ua_reason_for_leaving }}"
+    when: 'app_answers.ua_employer_status == "Previous employer"'
     optional: true
 
   # --- Certifications --------------------------------------------------------
   - fill: "Please list any current certifications or additional licenses you have, that support your qualifications for this position. If you do not have any, enter N/A.*"
     selector: "textarea#q33682"
-    value: "{{ answers.ua_certifications }}"
+    value: "{{ app_answers.ua_certifications }}"
 
   - click: "Continue"
     selector: "#saveContinue"
@@ -304,25 +314,25 @@ steps:
   # All stable IDs. Day/month are -edit dropdowns; year is a plain text input.
   - fill: "Company Name*"
     selector: "#q34298"
-    value: "{{ answers.ua_company_name }}"
+    value: "{{ app_answers.ua_company_name }}"
 
   - fill: "Position Title*"
     selector: "#q34299"
-    value: "{{ answers.current_title }}"
+    value: "{{ app_answers.current_title }}"
 
   - press: "Day"
     selector: "#q34300_day-edit"
-    value: "{{ answers.ua_start_day }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_start_day }}, ArrowDown, Enter"
     optional: true
 
   - press: "Month"
     selector: "#q34300_month-edit"
-    value: "{{ answers.ua_start_month }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_start_month }}, ArrowDown, Enter"
     optional: true
 
   - fill: "[placeholder: Year]"
     selector: "#q34300_year"
-    value: "{{ answers.ua_start_year }}"
+    value: "{{ app_answers.ua_start_year }}"
     optional: true
 
   - press: "Country Worked In*"
@@ -331,14 +341,14 @@ steps:
 
   - press: "Add Additional Positions*"
     selector: "#q34302-edit"
-    value: "{{ answers.ua_add_additional_positions }}, ArrowDown, Enter"
+    value: "{{ app_answers.ua_add_additional_positions }}, ArrowDown, Enter"
 
   # "May we contact your current or previous employers?"
   # options: Yes | No | Contact me first
   - pick:
       group: "May we contact your current or previous employers listed in the work history section of the application?*"
       scope: "input[type=radio][name='q34323']"
-      source: answers.ua_contact_employers
+      source: app_answers.ua_contact_employers
       map:
         "yes": "Yes"
         "no": "No"
@@ -354,13 +364,11 @@ steps:
     selector: "#q31496-edit"
     value: "{{ answers.ua_felony_conviction }}, ArrowDown, Enter"
     wait_after: 1
-  # Conditional textarea — only appears when "Yes" selected.
-  # TODO: run extractor with "Yes" selected to get the real selector.
+  # Conditional textarea, visible only after "Yes". Label matching is the safe
+  # fallback until a stable selector is captured.
   - fill: "If yes, please describe the nature and circumstances of the crime.*"
-    selector: "TODO"
     value: "{{ answers.ua_felony_description }}"
     when: 'answers.ua_felony_conviction == "Yes"'
-    optional: true
   - click: "Continue"
     selector: "#saveContinue"
     wait_after: 3
@@ -370,7 +378,7 @@ steps:
   - pick:
       group: "Gender:"
       scope: "input[type=radio][name='q31489']"
-      source: answers.gender
+      source: app_answers.gender
       map:
         Female: "Female"
         Male: "Male"
@@ -379,7 +387,7 @@ steps:
   - pick:
       group: "Are you Hispanic or Latino?"
       scope: "input[type=radio][name='q31490']"
-      source: answers.is_hispanic_or_latino
+      source: app_answers.is_hispanic_or_latino
       map:
         true: "Yes"
         false: "No"
@@ -388,7 +396,7 @@ steps:
   - pick:
       group: "Citizenship:"
       scope: "input[type=radio][name='q31492']"
-      source: answers.ua_citizenship_status
+      source: app_answers.ua_citizenship_status
       map:
         "citizen": "U.S. Citizen"
         "permanent_resident": "Permanent Resident"
@@ -398,19 +406,19 @@ steps:
   # Race checkboxes — check all that apply
   - check: "American Indian/Alaska Native"
     selector: "#q23931"
-    when: '"American Indian or Alaska Native" in answers.race_ethnicity'
+    when: '"American Indian or Alaska Native" in app_answers.race_ethnicity'
   - check: "Asian"
     selector: "#q23932"
-    when: '"Asian" in answers.race_ethnicity'
+    when: '"Asian" in app_answers.race_ethnicity'
   - check: "Black or African American"
     selector: "#q23933"
-    when: '"Black or African American" in answers.race_ethnicity'
+    when: '"Black or African American" in app_answers.race_ethnicity'
   - check: "Native Hawaiian or Other Pacific Islander"
     selector: "#q23934"
-    when: '"Native Hawaiian or Other Pacific Islander" in answers.race_ethnicity'
+    when: '"Native Hawaiian or Other Pacific Islander" in app_answers.race_ethnicity'
   - check: "White"
     selector: "#q23935"
-    when: '"White" in answers.race_ethnicity'
+    when: '"White" in app_answers.race_ethnicity'
 
   - click: "Continue"
     selector: "#saveContinue"
@@ -511,7 +519,7 @@ steps:
   # "Other Referral/Listserv/Email Notification"
   - select: "(unlabeled)"
     selector: "[name='lApplicationSubSourceID']"
-    value: "{{ answers.ua_referral_source }}"
+    value: "{{ app_answers.ua_referral_source }}"
 
   - scroll: "bottom"
     optional: true
@@ -520,3 +528,5 @@ steps:
   # - click: "Submit application"
   #   selector: "#button_submitApplication"
   #   wait_after: 5
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."

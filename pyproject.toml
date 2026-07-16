@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-playbook-runner"
+version = "0.1.0"
+description = "Deterministic Playwright runner for declarative application playbooks"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "playwright==1.60.0",
+  "PyYAML==6.0.3",
+]
+
+[project.scripts]
+playbook-runner = "playbook_runner.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["playbook_runner*"]
+
+[tool.setuptools.package-data]
+playbook_runner = ["data/*.json", "data/*.txt"]

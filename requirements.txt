@@ -27,7 +27,6 @@
 # --- Direct dependencies (the ones this project imports) ---------------------
 playwright==1.60.0     # drives the real browser (engine.py)
 PyYAML==6.0.3          # parses .playbook.yaml files (parser.py)
-certifi==2026.6.17     # CA bundle for OpenAI HTTPS calls in macOS virtualenvs
 
 # --- Transitive dependencies (pulled in by playwright) -----------------------
 # Pinned for byte-for-byte reproducibility. pip installs these automatically,

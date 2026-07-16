@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from playbook_runner.equivalences import OptionCandidate, best_match, equivalence_gap_report
+from playbook_runner.equivalences import (
+    OptionCandidate,
+    best_match,
+    equivalence_gap_report,
+    state_abbreviation,
+)
 
 
 def utah_country_options() -> list[OptionCandidate]:
@@ -16,6 +21,11 @@ def utah_country_options() -> list[OptionCandidate]:
 
 
 class EquivalenceTests(unittest.TestCase):
+    def test_state_abbreviation_returns_canonical_postal_code(self) -> None:
+        self.assertEqual(state_abbreviation("Massachusetts"), "MA")
+        self.assertEqual(state_abbreviation("British Columbia"), "BC")
+        self.assertIsNone(state_abbreviation("Not Applicable (International)"))
+
     def test_state_abbreviation_to_name_with_state_context(self) -> None:
         match = best_match(
             "TX",

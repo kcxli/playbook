@@ -1433,7 +1433,7 @@
       },
       equivalences: "Use canonical values in playbooks. If a live option wording is missing, run with --screenshot-dir and promote equivalence-gap.json via tools/accept_equivalence_gap.py.",
       hidden_controls: "Do not draft active steps from hidden_controls unless a conditional/modal finding identifies the trigger that reveals them.",
-      final_submit: "Keep final submit/finish/certification clicks commented until human review."
+      final_submit: "Do not encode the final submit click while submission_mode is human. End the playbook with pause_for_user."
     },
     warnings: [],
     authoring_notes: []
@@ -1448,13 +1448,13 @@
   log("Captured at:", new Date().toISOString());
   log("");
 
-  section("-- AI PLAYBOOK DRAFTING RULES ----------------------------------------");
+  section("-- PLAYBOOK DRAFTING RULES -------------------------------------------");
   log("  - Use canonical profile paths for applicant facts and app_answers.* for reusable application answers.");
   log("  - Use native select: for real <select> controls; the runner handles deterministic equivalences at runtime.");
   log("  - Use press: only for custom combobox/typeahead widgets that are not native <select> controls.");
   log("  - For radio groups and exclusive checkbox choice groups, prefer pick: with the provided scope.");
   log("  - Do not turn hidden/collapsed controls into active steps unless this report says a trigger revealed them.");
-  log("  - Leave final submit/finish/certification actions commented until a human reviews the filled application.");
+  log("  - Do not encode the final submit click. End the playbook with pause_for_user for applicant review and submission.");
   log("  - If a live option wording is missing later, use equivalence-gap.json with tools/accept_equivalence_gap.py.");
   log("");
 
@@ -1777,7 +1777,7 @@
     "Hidden controls are informational only unless they were discovered behind a recorded trigger.",
     "Visible validation messages are captured separately; fix the relevant earlier step rather than drafting steps against an error page.",
     "Rerun extractor after manually picking each Yes/Other/Add conditional path if needed.",
-    "Never enable final submit until a human has reviewed the filled application."
+    "In human-submission mode, never encode the final submit click; end with pause_for_user."
   ];
   section("-- PLAYBOOK AUTHORING NOTES ------------------------------------------");
   report.authoring_notes.forEach(note => log(`  - ${note}`));

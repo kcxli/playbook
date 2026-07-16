@@ -2,8 +2,14 @@
 
 This document explains the recent applicant-profile, application-defaults,
 employer-exceptions, and equivalence-matching updates. It is the map for how the
-current runner works and how the same model should become the future website
-experience.
+current runner works and how Project Exchange renders the same contract.
+
+The machine-readable source of truth is `playbook_runner/intake.py`. It defines
+the shared private-profile fields, canonical choices, per-playbook required
+paths and documents, target-specific fields, and known blockers. Project
+Exchange stores reusable values in `ApplicationProfile` and one target's
+answers in `ApplicationAnswerSet`; it does not copy this document into another
+hand-maintained form schema.
 
 ## Goal
 
@@ -24,7 +30,7 @@ stay easier to write, and the runner adapts common wording differences like
 
 ## The Data Layers
 
-The runner now thinks about data in three layers.
+The runner now thinks about data in four layers.
 
 ### 1. Canonical Profile Facts
 
@@ -111,6 +117,25 @@ Example:
 The key, such as `nyulangone` or `umn`, comes from the playbook's
 `employer_key`.
 
+### 4. Position-Specific Overrides
+
+One target may override only facts that can genuinely change by position:
+
+```text
+position_overrides.referral_source
+position_overrides.employee_referrer_name
+position_overrides.employment_relationship
+position_overrides.related_to_employer_employee
+position_overrides.has_conflict_of_interest
+```
+
+The same layer holds rare one-off prompts, such as the CUHK role selection or
+NYU's application-specific license option. Education, current employment,
+demographics, publications, emergency contact, scholarly discipline, and
+Interfolio setup are shared profile facts and must not appear again here.
+Government IDs and criminal-history responses remain runtime-only `answers.*`
+values and are not permitted in ordinary profile or answer-set JSON.
+
 ## Generated `app_answers`
 
 Playbooks do not read `application_defaults` and `application_exceptions`
@@ -127,9 +152,12 @@ the runner builds `app_answers` in this order:
 1. canonical facts derived from the structured applicant profile,
 2. legacy `answers.*` values so older profiles keep working,
 3. `application_defaults`,
-4. `application_exceptions.nyulangone`.
+4. `application_exceptions.nyulangone` (legacy/file-based integrations),
+5. the current target's nonblank `position_overrides`.
 
-Later layers win. This means the playbook can simply write:
+Later layers win. The runner then derives exact platform labels such as the
+Interfolio degree name or University of Alabama employment-status wording.
+This means the playbook can simply write:
 
 ```yaml
 source: app_answers.previously_employed_by_employer
@@ -337,13 +365,16 @@ source: app_answers.previously_employed_by_employer
 value: "{{ app_answers.desired_salary }}"
 ```
 
-Use prefixed `answers.*` only for true site/platform weirdness:
+ATS-specific wording for reusable facts is also generated:
 
 ```yaml
-value: "{{ answers.ua_referral_source }}"
-value: "{{ answers.nyulangone_degree }}"
-value: "{{ answers.cuhk_publication_type }}"
+value: "{{ app_answers.ua_referral_source }}"
+value: "{{ app_answers.nyulangone_degree }}"
+value: "{{ app_answers.cuhk_publication_type }}"
 ```
+
+Use `position_overrides.*` for true target differences and direct `answers.*`
+only for protected runtime checkpoints.
 
 For repeated yes/no radio groups, use `group` and/or `scope` so the runner does
 not click the wrong repeated `Yes`/`No`:
@@ -498,11 +529,14 @@ automation explicitly chooses from the captured candidate list.
 
 ### Applicant Data
 
-- [`information/test.json`](../information/test.json): canonical blank schema
-  for the applicant profile. It now includes `application_defaults` and
-  `application_exceptions`.
+- [`information/test.json`](../information/test.json): canonical blank profile
+  template and contract fixture. It includes `application_defaults` and
+  `application_exceptions`; it is not yet a formal JSON Schema.
+- [`playbook_runner/data/default_equivalences.json`](../playbook_runner/data/default_equivalences.json):
+  learned aliases and context hints shipped with every installed runner.
 - [`information/custom_equivalences.json`](../information/custom_equivalences.json):
-  shared learned aliases and context hints for deterministic option matching.
+  local aliases promoted from newly observed forms; this overlays the shipped
+  defaults and can be relocated with `PLAYBOOK_CUSTOM_EQUIVALENCES`.
 - [`applicants/test.json`](../applicants/test.json): fake general applicant
   profile with defaults filled in.
 - [`applicants/test_stats_rao.json`](../applicants/test_stats_rao.json): fake
@@ -513,9 +547,8 @@ automation explicitly chooses from the captured candidate list.
 - [`applicants/*_overrides.json`](../applicants/): legacy/application-layer data
   files used during debugging and validation. They still work because data files
   deep-merge and because legacy `answers.*` feeds into `app_answers`.
-- [`applicants/uci.secret.json`](../applicants/uci.secret.json): local secret or
-  sensitive override file. Secrets should stay out of committed general
-  profiles.
+- `applicants/uci.secret.json` is an example name for a local sensitive override
+  file. It is intentionally gitignored and is not committed.
 
 ### Runner Internals
 
@@ -548,19 +581,13 @@ automation explicitly chooses from the captured candidate list.
   updates the shared custom equivalence file from a failed-run
   `equivalence-gap.json` artifact.
 
-### Archived Attempts
+### Retired Approaches
 
-- [`past_attempts/`](../past_attempts/): historical experiments and snapshots
-  that are not part of the active workflow.
-- [`past_attempts/terminal_draft_playbook.py`](../past_attempts/terminal_draft_playbook.py):
-  former terminal paste-based playbook generator from extractor output.
-- [`past_attempts/live_wizard_drafter.py`](../past_attempts/live_wizard_drafter.py):
-  former live-page draft helper.
-- [`past_attempts/ai_recovery.py`](../past_attempts/ai_recovery.py): former
-  OpenAI-based runtime recovery/page copilot. The current approach is
-  deterministic playbooks plus equivalence repair instead.
-- [`past_attempts/project_snapshot_legacy/`](../past_attempts/project_snapshot_legacy/):
-  old nested repo snapshot moved out of the active root.
+Runtime AI recovery and the live-page wizard are intentionally absent from the
+active package. The supported workflow is extractor evidence, offline draft
+generation, hand-reviewed deterministic playbooks, and equivalence repair.
+Earlier implementations remain available through Git history rather than an
+importable `past_attempts` tree.
 
 ### Tests
 
@@ -592,8 +619,9 @@ Current playbooks:
 - [`playbooks/yale.playbook.yaml`](../playbooks/yale.playbook.yaml)
 - [`playbooks/cuhk.playbook.yaml`](../playbooks/cuhk.playbook.yaml)
 
-Several playbooks now read common answers from `app_answers.*` instead of
-site-specific `answers.*`.
+All maintained playbooks read reusable and ATS-shaped answers from
+`app_answers.*`. Direct `answers.*` use is limited to protected CUHK government
+ID and UA criminal-history checkpoints.
 
 ## Overrides Versus Exceptions
 
@@ -701,26 +729,15 @@ employer only, the website saves an employer exception:
 
 ### 3. Unique Playbook Questions
 
-Every playbook should eventually declare the application-specific answers it
-needs. A future playbook section could look like:
+Every maintained playbook declares an `intake.key`. The corresponding contract
+in `playbook_runner/intake.py` supplies its shared requirements and allowed
+target overrides. The website:
 
-```yaml
-required_app_answers:
-  - key: referral_source
-    defaultable: true
-  - key: previously_employed_by_employer
-    defaultable: true
-  - key: nyulangone_degree
-    defaultable: false
-```
-
-The website can then:
-
-- show defaultable questions prefilled from `app_answers`,
-- ask only missing required values,
-- allow optional questions to be skipped,
-- save changed reusable values as employer exceptions,
-- save true platform-specific answers under prefixed `answers.*`.
+- stores reusable facts once in `ApplicationProfile`,
+- derives exact platform labels in `app_answers`,
+- offers optional target referral and institution-relationship overrides,
+- stores only declared `position_overrides.*` values,
+- refuses ordinary storage for protected runtime answers.
 
 This prevents onboarding from becoming a 200-question form while still making
 each application review honest and complete.
@@ -740,9 +757,17 @@ language, not raw JSON paths.
 
 ### 5. Human Review Before Submit
 
-The website should keep final submission under human control. Automated filling
-can handle the repetitive work, but final attestation/submission should be
-reviewed by the applicant.
+During testing, final submission is always under applicant control. Every
+maintained playbook ends with `pause_for_user`; the visible browser remains open
+while the applicant reviews the completed form and personally clicks final
+submit. The future Project Exchange companion will expose the same gate in its
+UI. Automatic submission is a separate future mode, not a playbook edit.
+
+The deployed design is a cloud control plane plus local execution: Project
+Exchange owns private profiles, targets, permissions, and run state, while a
+signed companion on the applicant's computer runs the trusted Playwright
+package. Applicants use the automation but cannot edit executable playbooks or
+backend code.
 
 ## Current Status
 
@@ -751,17 +776,22 @@ Implemented:
 - Recursive data merge.
 - Generated `app_answers`.
 - Playbook `employer_key`.
-- General application defaults in the canonical schema and fake profiles.
+- General application defaults in the canonical profile template and fake profiles.
 - Employer exceptions in fake profile data.
 - Equivalence matching for common option wording differences.
 - Salary range matching for native dropdown options.
 - Structured `equivalence-gap.json` artifacts for missing option matches.
 - Shared `custom_equivalences.json` plus a helper tool for learned aliases.
 - Validation now treats a `pick` with no matching map/default as a problem.
+- `pause_for_user` provides a visible, tested human-review handoff and prevents
+  live headless execution of maintained playbooks.
 - Playbook migrations for several common answer fields.
-- Active docs now direct new playbooks toward extractor evidence plus
-  hand-reviewed YAML, not terminal-generated drafts.
-- Past attempts are grouped under `past_attempts/`.
+- Runner-owned profile/position intake contracts for all maintained playbooks.
+- Project Exchange private profile and target-answer forms.
+- Active docs direct new playbooks toward extractor evidence, conservative
+  offline draft generation, and hand-reviewed YAML.
+- Retired runtime experiments are absent from the active package and remain in
+  Git history.
 - Fresh-prompt context doc for AI-assisted drafting/debugging.
 - Tests for context merging and equivalence matching.
 
@@ -773,8 +803,8 @@ Validated:
 
 Still to build:
 
-- Explicit `required_app_answers` metadata in playbooks.
-- Website UI for defaults/exceptions review.
+- Encrypted Gmail authorization and runtime-secret checkpoints.
+- Durable run queue, worker leases, events, and cancellation.
 - Better migration away from legacy override files where possible.
 - More equivalence groups as real forms reveal new categories, not merely new
   wording inside existing categories.
@@ -785,14 +815,15 @@ For new playbooks:
 
 1. Use canonical profile paths for stable facts.
 2. Use `app_answers.*` for common repeated application questions.
-3. Use `answers.<platform>_*` only for true platform/site-specific fields.
-4. Give fields/groups clear labels because equivalence matching uses context.
-5. Use `scope` for repeated yes/no groups.
-6. Do not list every native dropdown option in the playbook unless documenting
+3. Use declared `position_overrides.*` only for true target-specific fields.
+4. Use direct `answers.*` only for protected runtime checkpoints.
+5. Give fields/groups clear labels because equivalence matching uses context.
+6. Use `scope` for repeated yes/no groups.
+7. Do not list every native dropdown option in the playbook unless documenting
    helpful context.
-7. Use extractor captures for custom widgets, hidden fields, typeaheads,
+8. Use extractor captures for custom widgets, hidden fields, typeaheads,
    validation errors, and checkbox choice groups.
-8. Keep sensitive/legal/financial answers out of general defaults.
-9. Run new playbooks with `--screenshot-dir`; if an option mismatch produces
+9. Keep sensitive/legal/financial answers out of general defaults.
+10. Run new playbooks with `--screenshot-dir`; if an option mismatch produces
    `equivalence-gap.json`, promote the confirmed wording into
    `information/custom_equivalences.json` instead of patching one playbook.

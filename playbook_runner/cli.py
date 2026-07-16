@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import sys
 
+from .artifacts import append_private_text
 from .context import DataError, load_context
 from .dryrun import analyze
 from .engine import Engine, StepError
@@ -44,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="like --dry-run, but also check that upload files exist and "
                         "exit nonzero if any problem is found (use this in CI/batch)")
     p.add_argument("--headless", action="store_true",
-                   help="run without a visible browser window")
+                   help="run without a visible browser window (incompatible with human gates)")
     p.add_argument("--slow-mo", type=int, default=0, metavar="MS",
                    help="slow each Playwright action by MS milliseconds (debugging)")
     p.add_argument("--pace", type=float, default=0.0, metavar="SECONDS",
@@ -88,6 +89,14 @@ def _run(argv: list[str]) -> int:
             print("\n✓ validation passed — every field resolves and upload files exist")
         return 0
 
+    if args.headless and any(step.kind == "pause_for_user" for step in playbook.steps):
+        print(
+            "playbook error: this playbook requires a visible browser for human review; "
+            "remove --headless",
+            file=sys.stderr,
+        )
+        return 2
+
     try:
         generated_artifact = _record_generated_values(args.playbook, playbook, context)
     except DataError as exc:
@@ -102,6 +111,7 @@ def _run(argv: list[str]) -> int:
             default_timeout=args.timeout,
             screenshot_dir=args.screenshot_dir,
             pace=args.pace,
+            human_prompt=_terminal_human_prompt,
         ) as engine:
             engine.run(playbook)
     except StepError as exc:
@@ -115,6 +125,17 @@ def _run(argv: list[str]) -> int:
     if generated_artifact:
         print(f"generated values recorded in {generated_artifact}")
     return 0
+
+
+def _terminal_human_prompt(message: str) -> None:
+    print("\nUSER ACTION REQUIRED")
+    print(message)
+    try:
+        input("Press Enter here after completing the requested browser action: ")
+    except EOFError as exc:
+        raise DataError(
+            "human review requires an interactive terminal; the application was not submitted"
+        ) from exc
 
 
 def _record_generated_values(playbook_path: str, playbook, context: dict) -> Path | None:
@@ -139,7 +160,6 @@ def _record_generated_values(playbook_path: str, playbook, context: dict) -> Pat
         })
 
     out = Path(".run") / "generated-values.jsonl"
-    out.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "recorded_at": datetime.now().isoformat(timespec="seconds"),
         "playbook": str(playbook_path),
@@ -148,8 +168,7 @@ def _record_generated_values(playbook_path: str, playbook, context: dict) -> Pat
         "employer_key": playbook.application_key,
         "values": rendered,
     }
-    with out.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record, ensure_ascii=True) + "\n")
+    append_private_text(out, json.dumps(record, ensure_ascii=True) + "\n")
     return out
 
 

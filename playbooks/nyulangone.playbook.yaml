@@ -3,11 +3,17 @@ name: "NYU Langone Health Application"
 job_id: "1158700_RR00117907"
 employer_key: "nyulangone"
 url: "https://jobs.silkroad.com/NYULangone/NYULHCareers/Apply/MultiForm/119818"
+listing:
+  institution: "NYU Langone Health"
+  title: "Position 1158700_RR00117907"
+  category: "faculty"
+intake:
+  key: "nyulangone"
 
 # Template paths reference the applicant data file:
 #   person_name.*, address_and_contact.*, emails.*, documents.* come from the
 #   rich profile; repeated application answers live under `app_answers.*`;
-#   NYU-specific answers live under `answers.nyulangone_*`; `builtins.today`
+#   position overrides are folded into `app_answers.*`; `builtins.today`
 #   is supplied by the runner.
 
 steps:
@@ -74,24 +80,24 @@ steps:
   # "Council of Clin Research Coord(30143)" | "Basic Life Support Cert(30017)" | etc.
   - select: "License & Certs"
     selector: "#ResumeColumn3"
-    value: "{{ answers.license_cert }}"
+    value: "{{ app_answers.license_cert }}"
   - fill: "Desired Salary"
     selector: "#Salary"
     value: "{{ app_answers.desired_salary }}"
   - pick:
       field: "Were you ever an employee or a volunteer at"
       as: select
-      source: answers.previously_employed_by_nyulangone
+      source: app_answers.previously_employed_by_nyulangone
       map: { true: "Yes", false: "No" }
     selector: "#ResumeColumn6"
   - fill: "If yes on question above, please list facility and dates worked."
     selector: "#ResumeColumn10"
-    value: "{{ answers.previously_employed_by_nyulangone_details }}"
-    when: "answers.previously_employed_by_nyulangone == true"
+    value: "{{ app_answers.previously_employed_by_nyulangone_details }}"
+    when: "app_answers.previously_employed_by_nyulangone == true"
   - fill: "If yes on question above, please list facility and dates worked."
     selector: "#ResumeColumn10"
     value: "N/A"
-    when: "answers.previously_employed_by_nyulangone == false"
+    when: "app_answers.previously_employed_by_nyulangone == false"
   - click: "NEXT"
 
   # --- profile attachments upload -----------------------------------------------------
@@ -118,7 +124,7 @@ steps:
   - pick:
       group: "What is your race/ethnicity?"
       scope: 'input[type=radio][name="Race"]'
-      source: app_answers.race_ethnicity
+      source: app_answers.ethnicity
       map:
         "Hispanic or Latino": "Hispanic or Latino"
         "White": "White (Not Hispanic or Latino)"
@@ -136,9 +142,9 @@ steps:
     value: "{{ builtins.today }}"
   - fill: "Employee ID"
     selector: "#OfccpDisabilityForm_EmployeeId"
-    value: "{{ answers.nyulangone_employee_id }}"
+    value: "{{ app_answers.nyulangone_employee_id }}"
     optional: true
-    when: "answers.previously_employed_by_nyulangone == true"
+    when: "app_answers.previously_employed_by_nyulangone == true"
   - pick:
       group: "Please check one of the boxes below:"
       scope: 'input[type=radio][name="OfccpDisabilityForm_Status"]'
@@ -157,6 +163,6 @@ steps:
       default: "I choose not to self identify"
 
   # --- captcha and submit -----------------------------------------------------
-  # Browser must be visible (no --headless). Complete the reCAPTCHA manually
-  # during the pause. Final submission remains manual.
-  - sleep: 120
+  # Browser must be visible. Complete the reCAPTCHA, review the application, and
+  # submit it manually while the runner waits.
+  - pause_for_user: "Complete the reCAPTCHA, review the application, and click the final submit button manually. Confirm here after submitting."

@@ -3,6 +3,15 @@ name: "Gustavus Adolphus College - Assistant Professor (Statistics)"
 job_id: "2419"
 employer_key: "gustavus"
 url: "https://gustavus.edu/employment/apply/2419"
+listing:
+  institution: "Gustavus Adolphus College"
+  title: "Assistant Professor of Statistics"
+  department: "Mathematics, Computer Science, and Statistics"
+  field: "Statistics"
+  category: "faculty"
+  rank: ["assistant_professor"]
+intake:
+  key: "gustavus"
 
 steps:
   # Dismiss privacy banner if it appears
@@ -423,3 +432,5 @@ steps:
 
   # - click: "Submit"
   #   selector: '[id="application-form.submit:element"]'
+
+  - pause_for_user: "Review the completed application and click the final submit button manually. Confirm here after submitting."
