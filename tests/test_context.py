@@ -21,7 +21,7 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(len(short_unique), 8)
         self.assertRegex(short_unique, r"^[a-z0-9]+$")
 
-    def test_generated_account_email_preserves_application_mailbox(self) -> None:
+    def test_generated_account_email_preserves_backend_supplied_alias(self) -> None:
         with tempfile.TemporaryDirectory() as raw_tmp:
             tmp = Path(raw_tmp)
             data = tmp / "profile.json"

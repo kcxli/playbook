@@ -62,25 +62,25 @@ This guide uses these confirmed starting assumptions:
 5. Once onboarding is complete, one click starts account creation and form
    filling. CAPTCHA, legally meaningful attestations, and final submission may
    still require the applicant.
-6. Normal email verification is automatic. For the first pilot, the applicant
-   creates and retains access to a dedicated Gmail account, grants Project
-   Exchange access, and uses that exact address for university/ATS accounts.
-   The private prototype uses a Gmail app password; public onboarding uses a
-   `Connect Gmail` OAuth flow. Manual code/link entry is recovery-only.
+6. Normal email verification is automatic. The applicant creates and retains
+   access to a dedicated Gmail account and connects it through Google OAuth.
+   Each listed position uses one stable `+px...` address delivered to that same
+   inbox. Project Exchange never asks for a Google password or app password.
+   Manual code/link entry is recovery-only.
 
 Changing one of these choices will not invalidate the architecture, but it will
 change the first implementation tasks.
 
 ## Current Local Checkpoint
 
-Phases 1 through 4 and the first validation-only integration slice are complete
-on the current Mac:
+Phases 1 through 4, the validation/Gmail slices, and a developer-only local
+browser slice are complete on the current Mac:
 
 - both repositories are cloned beside each other;
 - Project Exchange is on `feature/auto-apply-foundation`;
 - Python 3.12, Docker Desktop, PostgreSQL, and Redis work;
 - migrations and Django system checks pass;
-- all 258 Project Exchange tests and all 87 runner tests pass;
+- all 289 Project Exchange tests and all 92 runner tests pass;
 - the Django applicant workspace and React/Vite wizard both load locally;
 - fake test accounts were seeded;
 - Project Exchange's virtual environment imports the runner from this checkout
@@ -95,13 +95,26 @@ on the current Mac:
 - `/auto-apply/positions/<id>/answers/` stores only that position's additional
   referral, institution relationships, and genuinely unique questions;
 - `GET /api/auto-apply/positions/<id>/readiness/` reports safe preflight state;
-- all ten maintained playbooks are synced as active local website listings; and
+- all ten maintained playbooks are synced as active local website listings;
 - posting lists, timelines, applicant match cards, and position pages render
-  Auto Apply actions/readiness without enabling browser execution.
+  Auto Apply actions/readiness;
+- Gmail OAuth tokens are encrypted separately from mailbox metadata, stable
+  position aliases feed the runner, and the broker supplies expected email
+  links/codes without placing mailbox credentials in runner data;
+- with all three explicit local debug flags enabled, an authenticated applicant
+  can create one owner-scoped `ApplicationRun`, launch a visible browser, answer
+  email/human checkpoints on the run page, cancel it, and retain the human final
+  submission gate; and
+- reviewed CAPTCHA playbooks are marked in the catalog/position UI and enter a
+  typed attention state with an optional browser notification while the visible
+  university browser remains open.
 
-The next code phase is encrypted Gmail secret handling and the authenticated run
-queue/worker contract. The setup commands below remain as a reproducible record
-for another machine.
+The next code phase is the production executor-neutral run/event/checkpoint
+contract: immutable snapshots, authenticated claims, leases, devices/workers,
+external-account reuse, audit events, expiry/recovery, and private document
+grants. The current subprocess launcher is deliberately local and debug-only;
+it is not the production companion or cloud queue. The setup commands below
+remain as a reproducible record for another machine.
 
 ## Phase 0: Coordinate Before Touching Code
 
@@ -355,9 +368,9 @@ Do not put auto-apply records into these existing models:
 - `candidate.CandidateProfile` is an employer-facing extracted profile; and
 - `accounts.Profile` stores the user's role and public/profile settings.
 
-Auto-apply needs a private data boundary. The migrations now add
-`ApplicationProfile`, `ApplicationTarget`, `ApplicationMailbox`, and
-`ApplicationAnswerSet`. Add the remaining runtime models in later reviewed migrations:
+Auto-apply needs a private data boundary. The migrations now add the private
+profile/catalog/mailbox models and a developer-local `ApplicationRun`. Add the
+remaining production runtime models in later reviewed migrations:
 
 - `ApplicationProfile` (implemented): private runner-shaped supplemental data
   and schema version;
@@ -370,14 +383,19 @@ Auto-apply needs a private data boundary. The migrations now add
   verification state;
 - `ExternalApplicationAccount`: per-user account scope and encrypted credential
   reference so later positions reuse an account instead of registering again;
-- `ApplicationMailbox` (metadata implemented): exact applicant-owned Gmail
-  address, connection method/status, and encrypted secret reference; never a
-  plaintext mailbox password, app password, or OAuth token;
+- `ApplicationMailbox` (implemented): applicant-owned Gmail address, OAuth
+  connection/status, and an opaque encrypted-secret reference;
+- `ApplicationMailboxCredential` (implemented): OAuth token ciphertext protected
+  by the separate deployment encryption key;
+- `ApplicationEmailAlias` (implemented): stable owner/position Gmail `+px...`
+  address;
 - `EmailVerificationExpectation`: one active run's expected recipient/sender,
   allowed link pattern, expiry, and one-use match state without retaining the
   extracted secret;
-- `ApplicationRun`: user selection/overrides, immutable snapshot hashes,
-  executor mode, claimed device/worker, lease, and current step;
+- `ApplicationRun` (developer-local subset implemented): owner, target, local
+  process/status, transient checkpoint response, timestamps, and safe error;
+- production run claims/snapshots: immutable snapshot hashes, executor mode,
+  claimed device/worker, lease, idempotency key, and current step;
 - `ApplicationEvent`: ordered, sanitized progress events;
 - `HumanCheckpoint`: typed CAPTCHA, attestation, unexpected-prompt, or final
   review pause with expiry/resume state; and
@@ -420,14 +438,17 @@ document kind referenced by maintained playbooks. Canonical options come from
 the runner's equivalence-aware intake contract. Position-specific values are
 collected on that position and stored separately from reusable profile facts.
 
-Add application-email onboarding as private configuration. The user creates a
+Application-email onboarding is private configuration. The user creates a
 dedicated Gmail account for applications, keeps access to it, and authorizes
-Project Exchange to read it. That exact address is used by university accounts;
-there is no Project Exchange alias or forwarding layer. For the private
-prototype, use a revocable Gmail app password over the runner's existing IMAP
-path and never ask for the normal Google password. Before a public pilot, build
-a `Connect Gmail` OAuth flow, request only the necessary read capability, and
-complete Google's restricted-scope approval and security requirements.
+Project Exchange through **Connect Gmail**. The website assigns one stable
+`+px...` alias to each user/position pair; all aliases arrive in the connected
+inbox. The alias may avoid a previously registered address, although an ATS can
+still normalize Gmail aliases, so account recovery/reuse remains necessary.
+
+The OAuth refresh token is encrypted with a separate deployment key. The normal
+mailbox model stores only an opaque reference. Project Exchange never asks for
+the normal Google password or a 16-character app password. Before a public
+pilot, complete Google's restricted-scope approval and security requirements.
 
 A central mailbox broker automatically polls for an active run's expected
 message, extracts an allowlisted link/code in memory, and passes only that value
@@ -469,8 +490,9 @@ The implemented first endpoint is:
 GET /api/auto-apply/positions/<id>/readiness/
 ```
 
-Run creation, events, cancellation, and checkpoint endpoints come only after
-the run/lease models and executor authentication are implemented.
+The debug-only local slice now has authenticated run creation, status,
+cancellation, and checkpoint endpoints. Remote claims, events, leases, and
+executor authentication still wait for the production run contract.
 
 These are authenticated endpoints. Do not copy the current `csrf_exempt`
 submission endpoint. Require login and CSRF protection for browser requests.
@@ -498,7 +520,9 @@ catalog at any time with:
 python manage.py sync_playbook_catalog --activate
 ```
 
-The future workspace queue should show:
+The position page and run page now show local readiness, one active local run,
+sanitized logs, cancellation, and email/human checkpoints. The future
+cross-position workspace queue should also show:
 
 - which execution modes are available and whether a selected companion is
   connected/current;
@@ -523,9 +547,11 @@ should remain single-origin.
 
 ## Phase 9: Build Executors In Evidence-Driven Order
 
-These components do not exist yet. Build them against one shared run snapshot,
-event, and checkpoint contract so the website does not care where the browser
-runs.
+The debug-only website subprocess launcher proves the runner/profile/checkpoint
+bridge on this Mac. The installable companion, leased worker contract, cloud
+runner, and extension do not exist yet. Build them against one shared run
+snapshot, event, and checkpoint contract so the website does not care where the
+browser runs.
 
 ### Reliability Baseline: Local Companion
 
@@ -593,9 +619,10 @@ testing:
 2. Fix authenticated SPA CSRF/session behavior.
 3. Move private documents from a single EC2 Docker volume to owner-scoped
    private object storage with short-lived download grants.
-4. Add encrypted external-account and mailbox secret storage, a secured central
-   mailbox polling broker, provider connection/revocation health checks, and
-   automatic verification with recovery behavior and minimal message retention.
+4. Gmail OAuth, encrypted mailbox token storage, stable aliases, health/revoke
+   controls, and in-memory link/code extraction are implemented. Move key
+   custody to the production secret manager, connect the broker to leased runs,
+   and add recovery behavior before public testing.
 5. Add device revocation, cloud-worker identities, run leases, idempotent
    claims, typed checkpoint expiry, and audit events.
 6. Sign companion installers, updates, and playbook manifests.
@@ -646,7 +673,10 @@ error:
 7. Use only a controlled test form for the first companion browser run.
 8. Use fake profiles only for the first cloud/extension experiments.
 
-The validation milestone is complete: Project Exchange can collect and validate
-private shared and target-specific answers against every maintained playbook and
-show useful readiness errors. Browser execution comes only after this boundary
-and encrypted mailbox handling are complete.
+The validation, Gmail-linking, and developer-local browser milestones are
+complete: Project Exchange can collect and validate private shared and
+target-specific answers, connect and check a dedicated Gmail, assign stable
+per-position aliases, extract expected verification values, and launch one
+owner-scoped visible run with human checkpoints when explicit debug flags are
+enabled. It still needs the production claim/lease/event contract and an
+installable companion or isolated cloud executor before public Auto Apply.

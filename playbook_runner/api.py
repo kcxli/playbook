@@ -155,7 +155,7 @@ def _manifest(source: Path, playbook: Playbook) -> PlaybookManifest:
             ("human_checkpoint", "pause_for_user" in kinds),
         )
         if required
-    )
+    ) + _human_requirements(playbook)
     version = playbook.raw.get("version", 1)
     return PlaybookManifest(
         name=playbook.name,
@@ -170,6 +170,22 @@ def _manifest(source: Path, playbook: Playbook) -> PlaybookManifest:
         final_human_gate=playbook.steps[-1].kind == "pause_for_user",
         listing=_listing(playbook),
     )
+
+
+def _human_requirements(playbook: Playbook) -> tuple[str, ...]:
+    raw = playbook.raw.get("human_requirements", [])
+    if not isinstance(raw, list) or any(
+        not isinstance(value, str) for value in raw
+    ):
+        raise PlaybookError("human_requirements must be a list of strings")
+    normalized = tuple(dict.fromkeys(value.strip().casefold() for value in raw))
+    allowed = {"captcha"}
+    unknown = set(normalized) - allowed
+    if unknown:
+        raise PlaybookError(
+            f"human_requirements contains unsupported values: {sorted(unknown)}"
+        )
+    return normalized
 
 
 def _intake_key(playbook: Playbook) -> str | None:

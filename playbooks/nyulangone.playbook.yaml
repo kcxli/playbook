@@ -9,6 +9,8 @@ listing:
   category: "faculty"
 intake:
   key: "nyulangone"
+human_requirements:
+  - captcha
 
 # Template paths reference the applicant data file:
 #   person_name.*, address_and_contact.*, emails.*, documents.* come from the
@@ -67,7 +69,7 @@ steps:
   # "Post Graduate Degree" | "Doctoral Degree"
   - select: "Highest Level of Education"
     selector: "#ResumeColumn4"
-    value: "{{ app_answers.highest_education }}"
+    value: "{{ app_answers.nyulangone_highest_education }}"
   - select: "School"
     selector: "#ResumeColumn1"
     value: "{{ app_answers.school }}"

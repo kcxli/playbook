@@ -12,6 +12,8 @@ listing:
   state: "utah"
 intake:
   key: "utah"
+human_requirements:
+  - captcha
 
 generated_values:
   - key: account.utah_user_name
@@ -32,7 +34,8 @@ steps:
   - click: "Create an Account"
     wait_after: 2
 
-  # Complete CAPTCHA manually.
+  # Complete CAPTCHA manually while the browser session remains open.
+  - pause_for_user: "Complete the CAPTCHA in the visible browser. Confirm here after the CAPTCHA accepts your response."
   - wait_for: "Create Account"
     timeout: 300000
 

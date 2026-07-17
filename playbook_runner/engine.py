@@ -12,6 +12,7 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from . import conditions
 from .artifacts import ensure_private_dir, make_private, write_private_text
@@ -70,6 +71,7 @@ class Engine:
         pace: float = 0.0,
         log: Callable[[str], None] = print,
         human_prompt: Callable[[str], None] | None = None,
+        email_handler: Callable[[str, dict[str, Any], float], str] | None = None,
     ):
         self.context = context
         self.headless = headless
@@ -79,6 +81,7 @@ class Engine:
         self.pace = pace
         self.log = log
         self.human_prompt = human_prompt
+        self.email_handler = email_handler
         self._pw = None
         self._browser = None
         self.page = None
@@ -312,15 +315,15 @@ class Engine:
         self._ensure_live_page()
 
     def _do_await_email_link(self, step: Step) -> None:
-        """Poll a mailbox over IMAP for a just-arrived message, extract the first
-        link matching ``link_pattern``, and navigate the page to it.
+        """Ask an injected mailbox broker, or local IMAP as a fallback, for a
+        just-arrived link matching ``link_pattern`` and navigate to it.
 
         This unblocks the very common "click the link we emailed you" gate
         (magic-link sign-in, account/email verification) that otherwise stops an
         automated run cold. Credentials come from env vars (preferred) or
-        templated ``username``/``password`` in the config; matching/extraction
-        come from the playbook. Only mail newer than the run's start counts, so a
-        stale verification email from a previous run is never reused.
+        templated ``username``/``password`` in the config. Product integrations
+        inject a broker so mailbox credentials never enter runner data. Only mail
+        newer than the run's start counts, so stale verification is never reused.
         """
         import email as _email
         import imaplib
@@ -328,6 +331,18 @@ class Engine:
         from email.utils import parsedate_to_datetime
 
         cfg = step.config
+        if self.email_handler is not None:
+            resolved = self._resolved_email_config(cfg)
+            link = self.email_handler("link", resolved, self._started_at)
+            pattern = re.compile(resolved.get("link_pattern") or r"https?://\S+")
+            if not pattern.search(link):
+                raise StepError(step, "await_email_link: mailbox broker returned an invalid link")
+            if urlsplit(link).scheme not in {"http", "https"}:
+                raise StepError(step, "await_email_link: mailbox broker returned an unsafe link")
+            self.log("  · found verification link, navigating")
+            self.page.goto(link)
+            self._settle()
+            return
         host = (render_text(cfg["imap_host"], self.context) if cfg.get("imap_host")
                 else os.environ.get("IMAP_HOST", "imap.gmail.com"))
         user = (render_text(cfg["username"], self.context) if cfg.get("username")
@@ -423,6 +438,18 @@ class Engine:
         from email.utils import parsedate_to_datetime
 
         cfg = step.config
+        if self.email_handler is not None:
+            resolved = self._resolved_email_config(cfg)
+            code = self.email_handler("code", resolved, self._started_at)
+            pattern = re.compile(
+                resolved.get("code_pattern") or r"\b([0-9]{4,8})\b"
+            )
+            if not pattern.search(code):
+                raise StepError(step, "await_email_code: mailbox broker returned an invalid code")
+            field = resolved.get("field") or "Verification Code"
+            self.log("  · found verification code")
+            self._control(field, step, kinds=("input", "textarea")).fill(code)
+            return
         host = (render_text(cfg["imap_host"], self.context) if cfg.get("imap_host")
                 else os.environ.get("IMAP_HOST", "imap.gmail.com"))
         user = (render_text(cfg["username"], self.context) if cfg.get("username")
@@ -505,7 +532,7 @@ class Engine:
                     if m:
                         code = (m.group(1) if m.groups() else m.group(0)).strip()
                         field = render_text(cfg.get("field") or "Verification Code", self.context)
-                        self.log(f"  · found verification code: {code}")
+                        self.log("  · found verification code")
                         self._control(field, step, kinds=("input", "textarea")).fill(code)
                         return
                 if time.time() >= deadline:
@@ -517,6 +544,12 @@ class Engine:
                 imap.logout()
             except Exception:
                 pass
+
+    def _resolved_email_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: render_text(value, self.context) if isinstance(value, str) else value
+            for key, value in config.items()
+        }
 
     def _do_press(self, step: Step) -> None:
         """Send keyboard input. ``selector:`` focuses an element first; then each

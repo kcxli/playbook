@@ -256,9 +256,9 @@ def _set_generated_account_values(context: dict[str, Any]) -> None:
         resolve_path("account.email", context, default=""),
     )
     if base_email and "@" in base_email:
-        # Kept as a compatibility key for existing playbooks. Product runs use
-        # one applicant-owned application mailbox; they must not silently swap
-        # in per-run +aliases that change the address registered with an ATS.
+        # Kept as a compatibility key for existing playbooks. A product backend
+        # may supply a stable target-specific +alias here; preserve that exact
+        # address and never generate a fresh alias during a retry.
         account["generated_email"] = base_email
 
 

@@ -41,17 +41,16 @@ see the [beginner integration guide](project-exchange-beginner-guide.md).
    mapped to a maintainer-reviewed, immutable playbook release. Expect a few
    hundred distinct supported positions each annual hiring cycle, with new
    playbooks arriving daily or weekly during the busy period.
-8. A run creates an external ATS account when no suitable account exists, then
-   reuses that account for later positions sharing the same account scope. A
-   single dedicated application email cannot normally register a fresh account
-   for every posting on the same ATS or university site.
+8. A run uses the position's stable `+px...` alias and creates the external
+   account required by that playbook. Retries keep the same alias. If an ATS
+   normalizes Gmail aliases or requires one tenant-wide account, the deterministic
+   recovery/reuse path takes over instead of repeatedly creating accounts.
 9. Email-link and email-code verification is automatic during normal runs.
    Copying a link/code is recovery-only, not the default experience. Applicants
    create and retain access to a dedicated job-application mailbox, then grant
-   Project Exchange access to it. That exact address is used for ATS accounts;
-   the current developer IMAP environment variables are not the production
-   credential design. Gmail is the only mailbox provider required for the first
-   pilot.
+   Project Exchange access to it. Stable position-specific Gmail aliases all
+   deliver to that inbox. Gmail is the only mailbox provider required for the
+   first pilot.
 10. CAPTCHA and other unavoidable human challenges pause the run, notify the
     applicant, preserve the browser session, and resume after the applicant
     completes the challenge. They are never bypassed.
@@ -216,14 +215,16 @@ Normal verification should preserve the existing `await_email_link` and
 1. The applicant creates a dedicated Gmail account used only for job
    applications, keeps their own login, and connects it to Project Exchange
    during onboarding.
-2. The exact applicant-owned mailbox address is used to create university/ATS
-   accounts. Project Exchange does not replace it with an alias or forwarding
-   address.
-3. The private prototype uses a revocable Gmail app password over IMAP because
-   the runner already supports that path. It never asks for the normal Google
-   password. Before a public pilot, replace this onboarding with a Google OAuth
-   `Connect Gmail` flow and request only the mailbox-read capability required
-   for verification.
+2. Project Exchange assigns one stable Gmail `+px...` alias to each applicant
+   and listed position. Every alias delivers to the same applicant-owned inbox,
+   remains stable on retry, and gives account creation a chance to avoid an
+   address that was previously registered. Some ATS platforms normalize Gmail
+   aliases, so external-account recovery/reuse is still required.
+3. The applicant connects Gmail through Google OAuth. Project Exchange never
+   asks for the normal Google password or a Gmail app password. The server asks
+   only for read access, stores token material encrypted under a separate
+   deployment key, supports health checks/revocation, and gives the runner an
+   injected mailbox-broker callback instead of mailbox credentials.
 4. Before requesting a verification message, the run registers the expected
    recipient, sender/subject hints, allowed link domains/pattern, and start time.
 5. The mailbox broker authenticates just in time, examines only messages that
@@ -245,11 +246,11 @@ Redis job, executor snapshot, browser UI, log, analytics event, or support tool.
 The applicant may deliberately authorize broad mailbox access, but Project
 Exchange only needs to read messages; it should not send, delete, archive, or
 change account settings. Provider authentication still constrains the product:
-Gmail app passwords require 2-Step Verification and are unavailable for some
-accounts, while Gmail server-side read scopes can require restricted-scope
-OAuth verification and a security assessment. Complete that Google approval
-work before onboarding public users. Outlook and other providers are outside
-the first pilot and can be added later through the same mailbox-broker contract.
+Gmail server-side read scopes require restricted-scope OAuth verification and
+can require a security assessment when data is handled on a server. Complete
+that Google approval work before onboarding public users. Outlook and other
+providers are outside the first pilot and can be added later through the same
+mailbox-broker contract.
 
 Manual one-use code/link entry remains an authenticated recovery path for an
 unmatched or delayed message. It expires quickly and is never written to events,
@@ -272,8 +273,9 @@ they are not yet uniformly ready for this product contract:
 - UCI currently enables a returning-user password path while its first-time
   email-verification path is commented out.
 - UCSB and CUHK actively depend on developer-supplied IMAP credentials.
-- Utah and NYU Langone encounter CAPTCHA/manual interaction that is not yet a
-  typed resumable checkpoint.
+- Utah and NYU Langone declare the `captcha` human requirement and have an
+  explicit resumable local checkpoint. Production executors must preserve that
+  typed requirement and notification behavior.
 - several playbooks check terms, certifications, privacy statements, or
   attestations automatically; each must be classified as safe automation or an
   explicit human checkpoint before publication; and
@@ -287,8 +289,10 @@ release checklist.
 
 ## Human Checkpoints And Notifications
 
-`pause_for_user` must evolve from a terminal prompt into a typed checkpoint.
-Checkpoint reasons should include `captcha`, `legal_attestation`,
+The local website bridge now maps CAPTCHA prompts to a typed `captcha`
+checkpoint, an attention state, and an optional browser notification. The
+production contract must extend this beyond prompt classification. Checkpoint
+reasons should include `captcha`, `legal_attestation`,
 `email_attention`, `unexpected_site_prompt`, and `final_review`.
 
 Each checkpoint records a safe message, creation/expiry timestamps, executor
@@ -443,11 +447,13 @@ education, employment, demographic, and platform facts are derived by the
 runner instead of being asked again. The document model includes teaching
 evaluations, references, syllabus, writing sample, and additional attachments.
 
-Mailbox authorization and encrypted secret handling remain incomplete. The
-site stores the exact Gmail address and secret-manager reference metadata, but
-does not collect a plaintext app password. Government IDs and criminal-history
-answers are intentionally blocked from ordinary JSON and require a protected
-runtime checkpoint or approved encrypted store.
+Gmail OAuth authorization, encrypted token storage, connection health/revocation,
+stable position aliases, and in-memory verification extraction are implemented.
+The broker is connected to the debug-only local browser runner. A production
+leased executor still needs a scoped broker request/response contract, and
+production key custody requires deployment secret-manager operations. Government
+IDs and criminal-history answers remain blocked from ordinary JSON and require a
+protected runtime checkpoint or approved encrypted store.
 
 ## Project Exchange Preconditions
 
@@ -518,9 +524,9 @@ nested and still evolving. Frequently queried fields can be normalized later.
 
 ### `ApplicationMailbox`
 
-- Applicant owner, exact applicant-owned address used by ATS accounts,
-  provider/protocol, connection method (`oauth`, `imap_app_password`, or an
-  explicitly supported provider credential), status, and last health check.
+- Applicant owner, canonical inbox address, provider/protocol, OAuth connection
+  status, and last health check. `ApplicationEmailAlias` stores the stable
+  owner/position `+px...` address actually supplied to that playbook.
 - Stores only an opaque encrypted-secret reference and optional granted scopes;
   never a mailbox password, app password, or OAuth refresh token in a normal
   model field.
@@ -659,22 +665,27 @@ during maintenance, review it, run the full matrix, and publish a new release.
 2. Completed: formalize the private intake contract and canonical choices.
 3. Completed: add private profile, target, mailbox metadata, and target-answer models.
 4. Completed: build validation-only adapters, forms, and readiness endpoints.
-5. Add run, event, checkpoint, device, and external-account models, then the
-   dedicated-mailbox connection and polling broker, automatic verification and
-   recovery behavior, and typed checkpoint state machine.
-6. Build a developer-only companion that claims one test run and exercises one
-   non-submitting playbook against a controlled form.
-7. Add device pairing, leases, heartbeats, cancellation, reconnect handling,
+5. Completed: add Gmail OAuth connection, encrypted token storage, stable
+   position aliases, health/revocation controls, and an injectable mailbox
+   broker for automatic code/link extraction.
+6. Completed for local development: add an owner-scoped run record, visible
+   subprocess launcher, status/cancel page, and human/manual-email checkpoint
+   bridge. This is not a leased production queue.
+7. Add immutable snapshots, events, typed/expiring checkpoints, devices,
+   external-account reuse, authenticated claims/leases, and mailbox recovery.
+8. Turn the local proof into a developer companion that claims one test run and
+   exercises one non-submitting playbook against a controlled form.
+9. Add device pairing, leases, heartbeats, cancellation, reconnect handling,
    and one-active-run queueing.
-8. Build a one-playbook cloud worker with an authenticated live-browser view;
+10. Build a one-playbook cloud worker with an authenticated live-browser view;
    measure reliability and resource use rather than assuming viability.
-9. Build a bounded Chrome/Edge extension spike against the shared conformance
+11. Build a bounded Chrome/Edge extension spike against the shared conformance
    suite and representative forms.
-10. Add the applicant readiness, queue, status, notification, checkpoint, and
-    review experience.
-11. Build signed companion installers and automatic updates for the first two
-    supported desktop operating systems.
-12. Security-review the complete path, then roll out one ATS family at a time.
+12. Extend the local readiness/status/checkpoint pages into the applicant queue,
+    run history, notifications, and remote review experience.
+13. Build signed companion installers and automatic updates for the first two
+   supported desktop operating systems.
+14. Security-review the complete path, then roll out one ATS family at a time.
 
 ## Decisions That Can Wait
 
@@ -688,7 +699,7 @@ as executor work begins:
 - local artifact retention and opt-in upload policy;
 - Google OAuth consent-screen, restricted-scope verification, and security
   assessment timing before the public pilot;
-- mailbox secret-management, polling, rate-limit, and revocation design;
+- production secret-manager/key-rotation, polling-rate, and revocation operations;
 - cloud worker provider/autoscaling technology; and
 - whether the extension experiment merits a supported production executor.
 
@@ -701,7 +712,6 @@ as executor work begins:
 - [Playwright Docker and remote execution](https://playwright.dev/python/docs/docker)
 - [Chrome user scripts](https://developer.chrome.com/docs/extensions/reference/api/userScripts)
 - [Chrome Manifest V3 requirements](https://developer.chrome.com/docs/webstore/program-policies/mv3-requirements)
-- [Google app passwords](https://support.google.com/accounts/answer/185833)
 - [Gmail OAuth scope classifications](https://developers.google.com/workspace/gmail/api/auth/scopes)
 - [Microsoft Graph mail permissions](https://learn.microsoft.com/en-us/graph/permissions-reference)
 - [Microsoft Exchange Online basic-authentication deprecation](https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/deprecation-of-basic-authentication-exchange-online)

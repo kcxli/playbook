@@ -52,6 +52,24 @@ class PlaybookMatrixTests(unittest.TestCase):
             f"playbooks missing a final pause_for_user step: {failures}",
         )
 
+    def test_known_captcha_playbooks_declare_and_expose_the_requirement(self) -> None:
+        marked = set()
+        for path in sorted((ROOT / "playbooks").glob("*.playbook.yaml")):
+            manifest = inspect_playbook(path)
+            if "captcha" in manifest.capabilities:
+                marked.add(path.name.removesuffix(".playbook.yaml"))
+                playbook = load_playbook(str(path))
+                self.assertTrue(
+                    any(
+                        step.kind == "pause_for_user"
+                        and "captcha" in str(step.target).casefold()
+                        for step in playbook.steps
+                    ),
+                    f"{path.name} declares CAPTCHA without a CAPTCHA checkpoint",
+                )
+
+        self.assertEqual(marked, {"nyulangone", "utah"})
+
     def test_every_playbook_validates_with_its_intended_profile(self) -> None:
         playbooks = sorted((ROOT / "playbooks").glob("*.playbook.yaml"))
         self.assertGreater(len(playbooks), 0)

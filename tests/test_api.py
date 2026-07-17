@@ -95,6 +95,43 @@ class ValidationApiTests(unittest.TestCase):
             with self.assertRaisesRegex(Exception, "listing.title"):
                 inspect_playbook(path)
 
+    def test_manifest_marks_a_declared_captcha_requirement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._playbook(
+                tmp,
+                "\n".join(
+                    [
+                        "version: 1",
+                        "human_requirements:",
+                        "  - captcha",
+                        "steps:",
+                        '  - pause_for_user: "Complete the CAPTCHA."',
+                    ]
+                ),
+            )
+
+            manifest = inspect_playbook(path)
+
+        self.assertIn("captcha", manifest.capabilities)
+
+    def test_manifest_rejects_unknown_human_requirements(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._playbook(
+                tmp,
+                "\n".join(
+                    [
+                        "version: 1",
+                        "human_requirements:",
+                        "  - solve_captcha_automatically",
+                        "steps:",
+                        '  - pause_for_user: "Review."',
+                    ]
+                ),
+            )
+
+            with self.assertRaisesRegex(Exception, "unsupported values"):
+                inspect_playbook(path)
+
     def test_validate_application_reports_missing_data_without_browser(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = self._playbook(
